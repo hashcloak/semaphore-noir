@@ -51,6 +51,9 @@
         "@semaphore-protocol/identity": "4.9.1"
     },
     "dependencies": {
+        "@aztec/bb.js": "0.72.1",
+        "@noir-lang/noir_js": "1.0.0-beta.2",
+        "@noir-lang/noir_wasm": "1.0.0-beta.2",
         "@semaphore-protocol/utils": "4.9.1",
         "@zk-kit/artifacts": "1.8.0",
         "@zk-kit/utils": "1.3.0",

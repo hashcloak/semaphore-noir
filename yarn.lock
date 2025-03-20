@@ -243,6 +243,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aztec/bb.js@npm:0.72.1":
+  version: 0.72.1
+  resolution: "@aztec/bb.js@npm:0.72.1"
+  dependencies:
+    comlink: "npm:^4.4.1"
+    commander: "npm:^12.1.0"
+    debug: "npm:^4.3.4"
+    fflate: "npm:^0.8.0"
+    pako: "npm:^2.1.0"
+    tslib: "npm:^2.4.0"
+  bin:
+    bb.js: dest/node/main.js
+  checksum: 10/9dc0e42c7f0dd4ef9a49fb8fd8d69a1982ae8447c9f0cee794e767f95af6d42be72cf1ee2dbb657c0a7e6bdf4a11aeae6b179933cb182cf98037286075280541
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.10.4, @babel/code-frame@npm:^7.12.13, @babel/code-frame@npm:^7.16.0, @babel/code-frame@npm:^7.21.4, @babel/code-frame@npm:^7.23.5, @babel/code-frame@npm:^7.24.2, @babel/code-frame@npm:^7.8.3":
   version: 7.24.2
   resolution: "@babel/code-frame@npm:7.24.2"
@@ -6569,6 +6585,50 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noir-lang/acvm_js@npm:1.0.0-beta.2":
+  version: 1.0.0-beta.2
+  resolution: "@noir-lang/acvm_js@npm:1.0.0-beta.2"
+  checksum: 10/7e054ca6df8e42ee75a93fa68c78894dcf14277dc4eab08a51affec625bda57d90825faf4b905f56bb2cca1334fbbe9bee4223ba034307877b9de03dc7e386a6
+  languageName: node
+  linkType: hard
+
+"@noir-lang/noir_js@npm:1.0.0-beta.2":
+  version: 1.0.0-beta.2
+  resolution: "@noir-lang/noir_js@npm:1.0.0-beta.2"
+  dependencies:
+    "@noir-lang/acvm_js": "npm:1.0.0-beta.2"
+    "@noir-lang/noirc_abi": "npm:1.0.0-beta.2"
+    "@noir-lang/types": "npm:1.0.0-beta.2"
+  checksum: 10/ae02d93ad483bed3698a2f71dc4ece49f4ec2d942640416cca4dcff348d4c736382304b9ef20c787a8d3bcdf0099962647f3ede3c76410652c7d2eae59c6070d
+  languageName: node
+  linkType: hard
+
+"@noir-lang/noir_wasm@npm:1.0.0-beta.2":
+  version: 1.0.0-beta.2
+  resolution: "@noir-lang/noir_wasm@npm:1.0.0-beta.2"
+  dependencies:
+    "@noir-lang/types": "npm:1.0.0-beta.2"
+    pako: "npm:^2.1.0"
+  checksum: 10/90e81b97b30b75b9615b5a8bbbd42213186b4d797b70c38fce06081de2aab9f1890522430d59e59aaa992fd558859cb3a6efd42cf75114a971173ece5129038a
+  languageName: node
+  linkType: hard
+
+"@noir-lang/noirc_abi@npm:1.0.0-beta.2":
+  version: 1.0.0-beta.2
+  resolution: "@noir-lang/noirc_abi@npm:1.0.0-beta.2"
+  dependencies:
+    "@noir-lang/types": "npm:1.0.0-beta.2"
+  checksum: 10/6bd74ea4b810713affe8980a92728e9570b8370705511daac6f9395d60340563bf1e41af6417b6769a2d7add4dfeb5ba666ba6da1597d25b15a5a14a18c7b378
+  languageName: node
+  linkType: hard
+
+"@noir-lang/types@npm:1.0.0-beta.2":
+  version: 1.0.0-beta.2
+  resolution: "@noir-lang/types@npm:1.0.0-beta.2"
+  checksum: 10/e2fcda3df2221566ec54e693fb66a9227fefb50e9ae8ffcddf687348fb7fe57ad5b974362bd4277d2138e239479b1704d114b793493bbe4da529026a1ec08174
+  languageName: node
+  linkType: hard
+
 "@nomicfoundation/edr-darwin-arm64@npm:0.3.8":
   version: 0.3.8
   resolution: "@nomicfoundation/edr-darwin-arm64@npm:0.3.8"
@@ -7685,6 +7745,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@semaphore-protocol/proof@workspace:packages/proof"
   dependencies:
+    "@aztec/bb.js": "npm:0.72.1"
+    "@noir-lang/noir_js": "npm:1.0.0-beta.2"
+    "@noir-lang/noir_wasm": "npm:1.0.0-beta.2"
     "@rollup/plugin-alias": "npm:^5.1.0"
     "@rollup/plugin-json": "npm:^6.1.0"
     "@rollup/plugin-typescript": "npm:^11.1.6"
@@ -12260,6 +12323,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"comlink@npm:^4.4.1":
+  version: 4.4.2
+  resolution: "comlink@npm:4.4.2"
+  checksum: 10/ecee53b5b4536b3aa3f7636c383f831e68fbc013def77665cc7fad873d72cfa23b994e1ec4b49e83e4e909c1089a03acae03a523e33a5e5ed938cdb613456434
+  languageName: node
+  linkType: hard
+
 "comma-separated-tokens@npm:^1.0.0":
   version: 1.0.8
   resolution: "comma-separated-tokens@npm:1.0.8"
@@ -12326,7 +12396,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:^12.0.0":
+"commander@npm:^12.0.0, commander@npm:^12.1.0":
   version: 12.1.0
   resolution: "commander@npm:12.1.0"
   checksum: 10/cdaeb672d979816853a4eed7f1310a9319e8b976172485c2a6b437ed0db0a389a44cfb222bfbde772781efa9f215bdd1b936f80d6b249485b465c6cb906e1f93
@@ -15498,6 +15568,13 @@ __metadata:
     wasmcurves: "npm:0.2.2"
     web-worker: "npm:1.2.0"
   checksum: 10/2886a8737eb200dcb3f592a168d525bbde270e362589b5cb7dfa1cc86b78a3c455858664be994dae5c7acbf7eb831250afdf4270fc900d90b02ac6023a74c302
+  languageName: node
+  linkType: hard
+
+"fflate@npm:^0.8.0":
+  version: 0.8.2
+  resolution: "fflate@npm:0.8.2"
+  checksum: 10/2bd26ba6d235d428de793c6a0cd1aaa96a06269ebd4e21b46c8fd1bd136abc631acf27e188d47c3936db090bf3e1ede11d15ce9eae9bffdc4bfe1b9dc66ca9cb
   languageName: node
   linkType: hard
 
@@ -22787,6 +22864,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"pako@npm:^2.1.0":
+  version: 2.1.0
+  resolution: "pako@npm:2.1.0"
+  checksum: 10/38a04991d0ec4f4b92794a68b8c92bf7340692c5d980255c92148da96eb3e550df7a86a7128b5ac0c65ecddfe5ef3bbe9c6dab13e1bc315086e759b18f7c1401
+  languageName: node
+  linkType: hard
+
 "param-case@npm:^3.0.4":
   version: 3.0.4
   resolution: "param-case@npm:3.0.4"
@@ -26124,6 +26208,7 @@ __metadata:
   dependencies:
     "@commitlint/cli": "npm:^18.6.1"
     "@commitlint/config-conventional": "npm:^18.6.2"
+    "@rollup/plugin-json": "npm:^6.1.0"
     "@types/glob": "npm:^7.2.0"
     "@types/jest": "npm:^29.5.12"
     "@types/node": "npm:^20"

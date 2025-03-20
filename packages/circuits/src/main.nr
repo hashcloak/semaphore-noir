@@ -18,28 +18,28 @@ global BASE8: [Field; 2] = [
 global L: Field = 2736030358979909402780800718157159386076813972158567259200215660948447373041;
 
 fn main(
-    secret_key: Field,
+    secretKey: Field,
     indexes: Field, // a single field representing the index-bits for the merkle proof
-    hash_path: [Field; DEPTH],
+    hashPath: [Field; DEPTH],
     merkleTreeRoot: Field,
     scope: Field, // hashed
     message: pub Field, // hashed
 ) -> pub Field {
     // Ensure secret_key < l
-    assert_lt(secret_key, L);
+    assert_lt(secretKey, L);
 
     let generator: Curve<BabyJubJubParams> = Curve { x: BASE8[0], y: BASE8[1] };
-    let secret_scalar: ScalarField<63> = ScalarField::from(secret_key);
-    let pubkey = generator.mul(secret_scalar);
+    let secretScalar: ScalarField<63> = ScalarField::from(secretKey);
+    let pubkey = generator.mul(secretScalar);
 
-    let identity_commitment = poseidon([pubkey.x, pubkey.y]);
+    let identityCommitment = poseidon([pubkey.x, pubkey.y]);
 
     let mt = MerkleTree { root: merkleTreeRoot, hasher: poseidon };
     // Verifies membership
-    mt.membership(identity_commitment, indexes, hash_path);
+    mt.membership(identityCommitment, indexes, hashPath);
 
     // Nullifier = hash(scope, secret_key)
-    let nullifier = poseidon([scope, secret_key]);
+    let nullifier = poseidon([scope, secretKey]);
 
     nullifier
 }
@@ -60,22 +60,22 @@ pub fn from_be_bits<let N: u32>(bytes: [u1; N]) -> Field {
 // Values from "Should generate a Semaphore proof" test from proof package
 #[test]
 fn test_main() {
-    let secret_key = 1072931509665125050858164614503996272893941281138625620671594663472720926391;
+    let secretKey = 1072931509665125050858164614503996272893941281138625620671594663472720926391;
 
-    let mut index_bits: [u1; DEPTH] = [0; DEPTH];
-    index_bits[0] = 1;
+    let mut indexBits: [u1; DEPTH] = [0; DEPTH];
+    indexBits[0] = 1;
 
-    let mut hash_path = [0; 1];
-    hash_path[0] = 7853200120776062878684798364095072458815029376092732009249414926327459813530;
+    let mut hashPath = [0; 1];
+    hashPath[0] = 7853200120776062878684798364095072458815029376092732009249414926327459813530;
 
     let root = 4990292586352433503726012711155167179034286198473030768981544541070532815155;
     let scope = 170164770795872309789133717676167925425155944778337387941930839678899666300;
     let message = 8665846418922331996225934941481656421248110469944536651334918563951783029;
 
     let nullifier = main(
-        secret_key,
-        from_be_bits(index_bits),
-        hash_path,
+        secretKey,
+        from_be_bits(indexBits),
+        hashPath,
         root,
         scope,
         message,
