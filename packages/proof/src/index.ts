@@ -2,6 +2,7 @@ import { packGroth16Proof, unpackGroth16Proof } from "@zk-kit/utils/proof-packin
 import generateProof from "./generate-proof"
 import generateNoirProof from "./generate-proof-noir"
 import verifyProof from "./verify-proof"
+import verifyNoirProof from "./verify-proof-noir"
 
 export * from "./types"
-export { generateNoirProof, generateProof, packGroth16Proof, unpackGroth16Proof, verifyProof }
+export { generateNoirProof, generateProof, packGroth16Proof, unpackGroth16Proof, verifyProof, verifyNoirProof }

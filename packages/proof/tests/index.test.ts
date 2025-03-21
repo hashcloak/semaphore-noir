@@ -7,6 +7,7 @@ import fs from "fs"
 import generateProof from "../src/generate-proof"
 import generateNoirProof from "../src/generate-proof-noir"
 import verifyProof from "../src/verify-proof"
+import verifyNoirProof from "../src/verify-proof-noir"
 
 const circuitPath = path.resolve(__dirname, "../../circuits/target/circuit.json")
 const circuit = JSON.parse(fs.readFileSync(circuitPath, "utf-8"))
@@ -60,7 +61,6 @@ describe("Proof", () => {
 
             const proof = await generateNoirProof(identity, group, message, scope, treeDepth)
 
-            // TODO add verification of the proof
             const backend = new UltraHonkBackend(circuit.bytecode, { threads: 1 })
             const isValid = await backend.verifyProof(proof)
             expect(isValid).toBe(true)
@@ -71,6 +71,23 @@ describe("Proof", () => {
             ]
             // Proof verification should fail
             const isValid2 = await backend.verifyProof(proof)
+            expect(isValid2).toBe(false)
+        }, 80000)
+
+        it("Should verify a Noir Semaphore proof", async () => {
+            const group = new Group([1n, 2n, identity.commitment])
+
+            const proof = await generateNoirProof(identity, group, message, scope, treeDepth)
+
+            const isValid = await verifyNoirProof(proof)
+            expect(isValid).toBe(true)
+            // Manually change the message input
+            proof.publicInputs = [
+                "0x0005e79a1bbec7318d980bbb060e5ecc364a2659baea61a2733b194bd353ac75",
+                "0x26c78e51c50cebab7cdc50dfedc868f2328962c48e18c70b869886d4eebdd237"
+            ]
+            // Proof verification should fail
+            const isValid2 = await verifyNoirProof(proof)
             expect(isValid2).toBe(false)
         }, 80000)
 
