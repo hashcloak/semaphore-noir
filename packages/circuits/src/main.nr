@@ -1,3 +1,4 @@
+mod set_depth;
 use ec::bjj::BabyJubJubParams;
 use ec::Curve;
 use ec::scalar_field::ScalarField;
@@ -6,7 +7,7 @@ use std::hash::poseidon::bn254::hash_2 as poseidon;
 use trees::{merkle::MerkleTree, types::MembershipProver};
 
 // TODO: how to adjust this?
-comptime global DEPTH: u32 = 1;
+comptime global DEPTH: u32 = set_depth::DEPTH;
 
 // ref: https://github.com/noir-lang/noir-edwards/blob/main/src/test.nr#L6C8-L6C13
 global BASE8: [Field; 2] = [

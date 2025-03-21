@@ -8,6 +8,7 @@ import path from "path"
 import fs from "fs"
 import { ProofData, UltraHonkBackend } from "@aztec/bb.js"
 import { Noir } from "@noir-lang/noir_js"
+import { compile, createFileManager, ProgramCompilationArtifacts } from "@noir-lang/noir_wasm"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
 
@@ -27,6 +28,14 @@ function fromLeBits(bits: number[]): bigint {
     return result
 }
 
+export async function getCircuit(): Promise<ProgramCompilationArtifacts> {
+    // from https://github.com/noir-lang/noir/tree/master/compiler/wasm#noir-lang-wasm-javascript-package
+    const fm = createFileManager(path.join(__dirname, "..", "..", "circuits/"))
+    // FIXME -  cyclic dependency triggered: CyclicDependenciesError
+    const noirCircuit = await compile(fm)
+    return noirCircuit
+}
+
 export default async function generateNoirProof(
     identity: Identity,
     groupOrMerkleProof: Group | MerkleProof,
@@ -35,6 +44,11 @@ export default async function generateNoirProof(
     merkleTreeDepth?: number,
     snarkArtifacts?: SnarkArtifacts
 ): Promise<ProofData> {
+    // TODO - modify DEPTH in set_depth.nr based on merkleTreeDepth
+    // this will be used by "new Noir(circuit)"
+    const noirCircuit = getCircuit()
+    console.log(noirCircuit)
+
     requireDefined(identity, "identity")
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
     requireDefined(message, "message")
