@@ -6,10 +6,11 @@ import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-
 import type { BigNumberish } from "ethers"
 import path from "path"
 import fs from "fs"
-import { ProofData, UltraHonkBackend } from "@aztec/bb.js"
+import { UltraHonkBackend } from "@aztec/bb.js"
 import { Noir } from "@noir-lang/noir_js"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
+import { SemaphoreNoirProof } from "./types"
 
 // TODO how to do this in the cleanest way?
 const circuitPath = path.resolve(__dirname, "../../circuits/target/circuit.json")
@@ -34,7 +35,7 @@ export default async function generateNoirProof(
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
     snarkArtifacts?: SnarkArtifacts
-): Promise<ProofData> {
+): Promise<SemaphoreNoirProof> {
     requireDefined(identity, "identity")
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
     requireDefined(message, "message")
@@ -70,7 +71,6 @@ export default async function generateNoirProof(
     }
 
     const merkleProofLength = merkleProof.siblings.length
-
     if (merkleTreeDepth !== undefined) {
         if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
             throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
@@ -91,8 +91,8 @@ export default async function generateNoirProof(
     const hashPath = merkleProofSiblings.map((s) => s.toString() as `0x${string}`)
 
     const merkleTreeRoot = merkleProof.root.toString() as `0x${string}`
-    scope = hash(scope).toString() as `0x${string}`
-    message = hash(message).toString() as `0x${string}`
+    const hashedScope = hash(scope).toString() as `0x${string}`
+    const hashedMessage = hash(message).toString() as `0x${string}`
 
     // Initialize Noir with the compiled circuit
     const noir = new Noir(circuit as any)
@@ -104,11 +104,18 @@ export default async function generateNoirProof(
         indexes,
         hashPath,
         merkleTreeRoot,
-        scope,
-        message
+        scope: hashedScope,
+        message: hashedMessage
     })
 
     // Generate proof
     const proofData = await backend.generateProof(witness)
-    return proofData
+    return {
+        merkleTreeDepth,
+        merkleTreeRoot: merkleProof.root.toString() as `0x${string}`,
+        nullifier: proofData.publicInputs[3].toString() as `0x${string}`,
+        message: message.toString() as `0x${string}`,
+        scope: scope.toString() as `0x${string}`,
+        proofBytes: proofData.proof
+    }
 }

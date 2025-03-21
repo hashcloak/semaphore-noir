@@ -21,8 +21,8 @@ fn main(
     secretKey: Field,
     indexes: Field, // a single field representing the index-bits for the merkle proof
     hashPath: [Field; DEPTH],
-    merkleTreeRoot: Field,
-    scope: Field, // hashed
+    merkleTreeRoot: pub Field,
+    scope: pub Field, // hashed
     message: pub Field, // hashed
 ) -> pub Field {
     // Ensure secret_key < l
