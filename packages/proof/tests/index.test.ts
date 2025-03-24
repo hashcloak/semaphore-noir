@@ -12,7 +12,7 @@ const circuitPath = path.resolve(__dirname, "../../circuits/target/circuit.json"
 const circuit = JSON.parse(fs.readFileSync(circuitPath, "utf-8"))
 
 describe("Proof", () => {
-    const treeDepth = 10
+    const treeDepth = 1
 
     const message = "Hello world"
     const scope = "Scope"
@@ -115,12 +115,12 @@ describe("Proof", () => {
             expect(isValid).toBe(true)
         })
 
-        it("Should throw an error because snarkArtifacts is not an object", async () => {
+        it("Should throw an error because snarkArtifacts is not a valid path", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const fun = () => generateNoirProof(identity, group, message, scope, undefined, "hello" as any)
+            const fun = () => generateNoirProof(identity, group, message, scope, undefined, "hellob#$n@ot")
 
-            await expect(fun).rejects.toThrow("is not an object")
+            await expect(fun).rejects.toThrow("no such file or directory")
         })
 
         it("Should throw an error because the message value is incorrect", async () => {

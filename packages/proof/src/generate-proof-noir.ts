@@ -1,20 +1,16 @@
 import type { Group, MerkleProof } from "@semaphore-protocol/group"
 import type { Identity } from "@semaphore-protocol/identity"
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
-import { type SnarkArtifacts } from "@zk-kit/artifacts"
-import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-kit/utils/error-handlers"
+import { maybeDownload } from "@zk-kit/artifacts"
+import { requireDefined, requireNumber, requireObject, requireTypes, requireString } from "@zk-kit/utils/error-handlers"
 import type { BigNumberish } from "ethers"
-import path from "path"
 import fs from "fs"
 import { UltraHonkBackend } from "@aztec/bb.js"
 import { Noir } from "@noir-lang/noir_js"
+import { tmpdir } from "node:os"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
 import { SemaphoreNoirProof } from "./types"
-
-// TODO how to do this in the cleanest way?
-const circuitPath = path.resolve(__dirname, "../../circuits/target/circuit.json")
-const circuit = JSON.parse(fs.readFileSync(circuitPath, "utf-8"))
 
 function fromLeBits(bits: number[]): bigint {
     let result = 0n
@@ -28,13 +24,25 @@ function fromLeBits(bits: number[]): bigint {
     return result
 }
 
+// consider merging this function to pse snark-artifacts in the future
+// download precompiled circuit based on the merkleTreeDepth
+async function maybeGetNoirArtifacts(merkleTreeDepth: number): Promise<string> {
+    const BASE_URL = "https://github.com/hashcloak/snark-artifacts/blob/semaphore-noir/packages/semaphore-noir"
+    const url = `${BASE_URL}/semaphore-noir-${merkleTreeDepth}.json?raw=true`
+
+    const outputPath = `${tmpdir()}/semaphore-noir/${merkleTreeDepth}`
+    const circuitPath = await maybeDownload(url, outputPath)
+
+    return circuitPath
+}
+
 export default async function generateNoirProof(
     identity: Identity,
     groupOrMerkleProof: Group | MerkleProof,
     message: BigNumberish | Uint8Array | string,
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
-    snarkArtifacts?: SnarkArtifacts
+    noirArtifactsPath?: string
 ): Promise<SemaphoreNoirProof> {
     requireDefined(identity, "identity")
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
@@ -50,8 +58,8 @@ export default async function generateNoirProof(
         requireNumber(merkleTreeDepth, "merkleTreeDepth")
     }
 
-    if (snarkArtifacts) {
-        requireObject(snarkArtifacts, "snarkArtifacts")
+    if (noirArtifactsPath) {
+        requireString(noirArtifactsPath, "snarkArtifacts")
     }
 
     // Message and scope can be strings, numbers or buffers (i.e. Uint8Array).
@@ -78,6 +86,10 @@ export default async function generateNoirProof(
     } else {
         merkleTreeDepth = merkleProofLength !== 0 ? merkleProofLength : 1
     }
+
+    // If the paths of Noir circuit json files are not defined they will be automatically downloaded.
+    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleTreeDepth)
+    const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
 
     // Prepare inputs for Noir program
     const secretKey = identity.secretScalar.toString() as `0x${string}`
