@@ -37,7 +37,7 @@ export default async function generateProof(
     message: BigNumberish | Uint8Array | string,
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
-    snarkArtifacts?: SnarkArtifacts
+    snarkArtifacts?: SnarkArtifacts // E: https://github.com/privacy-scaling-explorations/snark-artifacts
 ): Promise<SemaphoreProof> {
     requireDefined(identity, "identity")
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
@@ -103,6 +103,17 @@ export default async function generateProof(
         }
     }
 
+    // Log values before proof generation
+    // console.log("=== Semaphore Proof Generation ===")
+    // console.log("Secret Scalar:", identity.secretScalar)
+    // console.log("Merkle Proof Length:", merkleProofLength)
+    // console.log("Merkle Proof Indices:", merkleProofIndices)
+    // console.log("Merkle Proof Siblings:", merkleProofSiblings)
+    // console.log("Scope (unhashed):", hash(scope))
+    // console.log("Message (unhashed):", hash(message))
+    // console.log("==================================")
+    // console.log("identity.commitment", identity.commitment);
+
     const { proof, publicSignals } = await groth16.fullProve(
         {
             secret: identity.secretScalar,
@@ -115,7 +126,8 @@ export default async function generateProof(
         wasm,
         zkey
     )
-
+    // console.log("Nullifier:", publicSignals[1]);
+    // console.log("root", merkleProof.root);
     return {
         merkleTreeDepth,
         merkleTreeRoot: merkleProof.root.toString(),

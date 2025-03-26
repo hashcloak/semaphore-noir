@@ -13,7 +13,7 @@ import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
 
 // TODO change this import
-const circuitPath = path.resolve(__dirname, "../../circuits/target/circuit.json")
+const circuitPath = path.resolve(__dirname, "../../circuits-noir/target/circuit.json")
 const circuit = JSON.parse(fs.readFileSync(circuitPath, "utf-8"))
 
 export default async function verifyNoirProof(proof: SemaphoreNoirProof): Promise<boolean> {
