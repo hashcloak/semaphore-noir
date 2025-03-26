@@ -12,18 +12,6 @@ import hash from "./hash"
 import toBigInt from "./to-bigint"
 import { SemaphoreNoirProof } from "./types"
 
-function fromLeBits(bits: number[]): bigint {
-    let result = 0n
-    let v = 1n
-
-    for (const bit of bits) {
-        result += BigInt(bit) * v
-        v *= 2n
-    }
-
-    return result
-}
-
 // consider merging this function to pse snark-artifacts in the future
 // download precompiled circuit based on the merkleTreeDepth
 async function maybeGetNoirArtifacts(merkleTreeDepth: number): Promise<string> {
@@ -94,13 +82,11 @@ export default async function generateNoirProof(
     // Prepare inputs for Noir program
     const secretKey = identity.secretScalar.toString() as `0x${string}`
 
-    const merkleProofIndices: number[] = Array.from({ length: merkleTreeDepth }, (_, i) => (merkleProof.index >> i) & 1)
-    // Convert array of bits into a single bigint
-    const indexes = fromLeBits(merkleProofIndices).toString() as `0x${string}`
-
-    const merkleProofSiblings = Array.from(merkleProof.siblings, (sibling) => sibling ?? 0n)
+    const merkleProofSiblings = Array.from({ length: merkleTreeDepth }, (_, i) => merkleProof.siblings[i] ?? 0n)
     // Format to valid input for circuit
     const hashPath = merkleProofSiblings.map((s) => s.toString() as `0x${string}`)
+    // Index is a single number representation of the be_bits that indicate sibling index for all siblings
+    const indexInput = merkleProof.index.toString() as `0x${string}`
 
     const merkleTreeRoot = merkleProof.root.toString() as `0x${string}`
     const hashedScope = hash(scope).toString() as `0x${string}`
@@ -113,7 +99,7 @@ export default async function generateNoirProof(
     // Generate witness
     const { witness } = await noir.execute({
         secretKey,
-        indexes,
+        indexInput,
         hashPath,
         merkleTreeRoot,
         scope: hashedScope,

@@ -8,7 +8,6 @@ import { promises as fs } from "fs"
 import { exec } from "child_process"
 import { promisify } from "util"
 import path from "path"
-import { generateMerkleProof } from "./common"
 
 // Prime number of 251 bits.
 const l = 2736030358979909402780800718157159386076813972158567259200215660948447373041n
@@ -23,7 +22,7 @@ const TARGET_PATH = path.resolve(__dirname, "../target/circuit.json")
 
 async function replaceDepthInCircuit(newDepth: number) {
     const circuit = await fs.readFile(CIRCUIT_PATH, "utf-8")
-    const modified = circuit.replace(/pub global DEPTH: u32 = \d+;/, `pub global DEPTH: u32 = ${newDepth};`)
+    const modified = circuit.replace(/pub global PROOF_LEN: u32 = \d+;/, `pub global PROOF_LEN: u32 = ${newDepth};`)
     await fs.writeFile(CIRCUIT_PATH, modified, "utf-8")
 }
 
@@ -38,23 +37,11 @@ async function getCircuit() {
     return JSON.parse(compiledJson)
 }
 
-// TODO add to utils
-function fromLeBits(bits: number[]): bigint {
-    let result = 0n
-    let v = 1n
-
-    for (const bit of bits) {
-        result += BigInt(bit) * v
-        v *= 2n
-    }
-
-    return result
-}
-function getCircuitInput(group: Group, testDepth: number, secret: bigint, scope: number, message: number) {
-    const { merkleProofSiblings, merkleProofIndices } = generateMerkleProof(group, 0, testDepth)
+function getCircuitInput(leafIndex: number, group: Group, secret: bigint, scope: number, message: number) {
+    const { siblings: merkleProofSiblings, index } = group.generateMerkleProof(leafIndex)
     const secretInput = secret.toString() as `0x${string}`
     const hashPath = merkleProofSiblings.map((s: { toString: () => string }) => s.toString() as `0x${string}`)
-    const indexes = fromLeBits(merkleProofIndices).toString() as `0x${string}`
+    const indexes = index.toString() as `0x${string}`
     const merkleTreeRoot = group.root.toString() as `0x${string}`
     const scopeInput = scope.toString() as `0x${string}`
     const messageInput = message.toString() as `0x${string}`
@@ -69,89 +56,50 @@ function getCircuitInput(group: Group, testDepth: number, secret: bigint, scope:
     }
 }
 
-describe("Noir Semaphore circuit", () => {
-    let testDepth = 10
+async function getCompiledNoirProgram(testProofLen: number) {
+    await replaceDepthInCircuit(testProofLen)
+    await compileWithNargo()
+    const program = await getCircuit()
 
+    const noir = new Noir(program)
+    return { noir, program }
+}
+
+async function verifyForInputs(
+    noir: Noir,
+    inputs: {
+        secretKey: `0x${string}`
+        indexes: `0x${string}`
+        hashPath: `0x${string}`[]
+        merkleTreeRoot: `0x${string}`
+        scope: `0x${string}`
+        message: `0x${string}`
+    },
+    program: any
+) {
+    const { witness } = await noir.execute(inputs)
+
+    const backend = new UltraPlonkBackend(program.bytecode)
+    const proof = await backend.generateProof(witness)
+
+    const verified = await backend.verifyProof(proof)
+    return { verified, proof }
+}
+
+describe("Noir Semaphore circuit", () => {
     const scope = 32
     const message = 43
 
-    it("Should calculate the root and the nullifier correctly", async () => {
+    it("Should calculate the root and the nullifier correctly for prooflength 1", async () => {
         const secret = l - 1n
 
         const commitment = poseidon2(mulPointEscalar(Base8, secret))
-        const group = new Group([commitment, 2n, 3n])
-        testDepth = group.depth
+        const group = new Group([2n, 3n, commitment])
+        const inputs = getCircuitInput(2, group, secret, scope, message)
+        const testProofLen = inputs.hashPath.length
 
-        await replaceDepthInCircuit(testDepth)
-        await compileWithNargo()
-        const program = await getCircuit()
-
-        const inputs = getCircuitInput(group, testDepth, secret, scope, message)
-
-        const noir = new Noir(program)
-        const { witness } = await noir.execute(inputs)
-
-        const backend = new UltraPlonkBackend(program.bytecode)
-        const proof = await backend.generateProof(witness)
-
-        const verified = await backend.verifyProof(proof)
-        expect(verified).toBe(true)
-    }, 80000)
-
-    it("Should not calculate the root and the nullifier correctly if secret > l", async () => {
-        const secret = l
-
-        const commitment = poseidon2(mulPointEscalar(Base8, secret))
-        const group = new Group([commitment, 2n, 3n])
-        testDepth = group.depth
-
-        await replaceDepthInCircuit(testDepth)
-        await compileWithNargo()
-        const program = await getCircuit()
-
-        const inputs = getCircuitInput(group, testDepth, secret, scope, message)
-        const noir = new Noir(program)
-
-        await expect(noir.execute(inputs)).rejects.toThrow(/assert/i)
-    })
-
-    it("Should not calculate the root and the nullifier correctly if secret = r - 1", async () => {
-        const secret = r - 1n
-
-        const commitment = poseidon2(mulPointEscalar(Base8, secret))
-        const group = new Group([commitment, 2n, 3n])
-        testDepth = group.depth
-
-        await replaceDepthInCircuit(testDepth)
-        await compileWithNargo()
-        const program = await getCircuit()
-
-        const inputs = getCircuitInput(group, testDepth, secret, scope, message)
-        const noir = new Noir(program)
-
-        await expect(noir.execute(inputs)).rejects.toThrow(/assert/i)
-    })
-
-    it("Should calculate the root and the nullifier correctly using the Semaphore Identity library", async () => {
-        const { commitment, secretScalar: secret } = new Identity()
-
-        const group = new Group([commitment, 2n, 3n])
-        testDepth = group.depth
-
-        await replaceDepthInCircuit(testDepth)
-        await compileWithNargo()
-        const program = await getCircuit()
-
-        const inputs = getCircuitInput(group, testDepth, secret, scope, message)
-
-        const noir = new Noir(program)
-        const { witness } = await noir.execute(inputs)
-
-        const backend = new UltraPlonkBackend(program.bytecode)
-        const proof = await backend.generateProof(witness)
-
-        const verified = await backend.verifyProof(proof)
-
+        const { noir, program } = await getCompiledNoirProgram(testProofLen)
+        const { verified, proof } = await verifyForInputs(noir, inputs, program)
         const nullifier = poseidon2([scope, secret])
 
         expect(verified).toBe(true)
@@ -161,5 +109,103 @@ describe("Noir Semaphore circuit", () => {
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 
-    // TODO add tests for various depths
+    it("Should calculate the root and the nullifier correctly prooflength 2", async () => {
+        const secret = l - 1n
+
+        const commitment = poseidon2(mulPointEscalar(Base8, secret))
+        const group = new Group([2n, 3n, 4n, 123456n, 222n, commitment])
+        const leafIndex = 5
+        const inputs = getCircuitInput(leafIndex, group, secret, scope, message)
+        const testProofLen = inputs.hashPath.length
+
+        const { noir, program } = await getCompiledNoirProgram(testProofLen)
+        const { verified, proof } = await verifyForInputs(noir, inputs, program)
+        const nullifier = poseidon2([scope, secret])
+
+        expect(verified).toBe(true)
+        expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
+    }, 80000)
+
+    it("Should calculate the root and the nullifier correctly prooflength 10 for a right leaf", async () => {
+        const secret = l - 1n
+
+        const commitment = poseidon2(mulPointEscalar(Base8, secret))
+        const leaves = Array.from({ length: 1023 }, (_, i) => BigInt(i + 1)) // 1023 dummy leaves
+        leaves.push(commitment) // the leaf we're proving
+        const group = new Group(leaves)
+        const leafIndex = 1023 // the 124th leaf, which is a right leaf
+        const inputs = getCircuitInput(leafIndex, group, secret, scope, message)
+        const testProofLen = inputs.hashPath.length
+
+        const { noir, program } = await getCompiledNoirProgram(testProofLen)
+        const { verified, proof } = await verifyForInputs(noir, inputs, program)
+        const nullifier = poseidon2([scope, secret])
+
+        expect(verified).toBe(true)
+        expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
+    }, 80000)
+
+    it("Should calculate the root and the nullifier correctly prooflength 10 for a left leaf", async () => {
+        const secret = l - 1n
+
+        const commitment = poseidon2(mulPointEscalar(Base8, secret))
+        const leaves = Array.from({ length: 1024 }, (_, i) => BigInt(i + 1)) // 1024 dummy leaves
+        leaves.push(commitment) // the leaf we're proving
+        const group = new Group(leaves)
+        const leafIndex = 1024 // the 125th leaf, which is a left leaf
+        const inputs = getCircuitInput(leafIndex, group, secret, scope, message)
+        const testProofLen = inputs.hashPath.length
+
+        const { noir, program } = await getCompiledNoirProgram(testProofLen)
+        const { verified, proof } = await verifyForInputs(noir, inputs, program)
+        const nullifier = poseidon2([scope, secret])
+
+        expect(verified).toBe(true)
+        expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
+    }, 80000)
+
+    it("Should not calculate the root and the nullifier correctly if secret > l", async () => {
+        const secret = l
+
+        const commitment = poseidon2(mulPointEscalar(Base8, secret))
+        const group = new Group([commitment, 2n, 3n])
+        const inputs = getCircuitInput(0, group, secret, scope, message)
+
+        const testProofLen = inputs.hashPath.length
+        const { noir } = await getCompiledNoirProgram(testProofLen)
+
+        await expect(noir.execute(inputs)).rejects.toThrow(/assert/i)
+    })
+
+    it("Should not calculate the root and the nullifier correctly if secret = r - 1", async () => {
+        const secret = r - 1n
+
+        const commitment = poseidon2(mulPointEscalar(Base8, secret))
+        const group = new Group([commitment, 2n, 3n])
+
+        const inputs = getCircuitInput(0, group, secret, scope, message)
+        const testProofLen = inputs.hashPath.length
+        const { noir } = await getCompiledNoirProgram(testProofLen)
+
+        await expect(noir.execute(inputs)).rejects.toThrow(/assert/i)
+    })
+
+    it("Should calculate the root and the nullifier correctly using the Semaphore Identity library", async () => {
+        const { commitment, secretScalar: secret } = new Identity()
+        const group = new Group([commitment, 2n, 3n])
+
+        const inputs = getCircuitInput(0, group, secret, scope, message)
+        const testProofLen = inputs.hashPath.length
+        const { noir, program } = await getCompiledNoirProgram(testProofLen)
+
+        const { verified, proof } = await verifyForInputs(noir, inputs, program)
+
+        const nullifier = poseidon2([scope, secret])
+
+        expect(verified).toBe(true)
+        expect(BigInt(proof.publicInputs[0])).toEqual(group.root)
+        expect(BigInt(proof.publicInputs[1])).toEqual(BigInt(scope))
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(message))
+        expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
+    }, 80000)
 })
