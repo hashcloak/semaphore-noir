@@ -1,28 +1,15 @@
 import type { Group, MerkleProof } from "@semaphore-protocol/group"
 import type { Identity } from "@semaphore-protocol/identity"
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
-import { maybeDownload } from "@zk-kit/artifacts"
 import { requireDefined, requireNumber, requireObject, requireTypes, requireString } from "@zk-kit/utils/error-handlers"
 import type { BigNumberish } from "ethers"
 import fs from "fs"
 import { UltraHonkBackend } from "@aztec/bb.js"
 import { Noir } from "@noir-lang/noir_js"
-import { tmpdir } from "node:os"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
 import { SemaphoreNoirProof } from "./types"
-
-// consider merging this function to pse snark-artifacts in the future
-// download precompiled circuit based on the merkleTreeDepth
-async function maybeGetNoirArtifacts(merkleTreeDepth: number): Promise<string> {
-    const BASE_URL = "https://github.com/hashcloak/snark-artifacts/blob/semaphore-noir/packages/semaphore-noir"
-    const url = `${BASE_URL}/semaphore-noir-${merkleTreeDepth}.json?raw=true`
-
-    const outputPath = `${tmpdir()}/semaphore-noir/${merkleTreeDepth}`
-    const circuitPath = await maybeDownload(url, outputPath)
-
-    return circuitPath
-}
+import maybeGetNoirArtifacts from "./utils"
 
 export default async function generateNoirProof(
     identity: Identity,
@@ -67,6 +54,8 @@ export default async function generateNoirProof(
     }
 
     const merkleProofLength = merkleProof.siblings.length
+    // This check is for compatibility with circom.
+    // The Noir circuits are parameterised by merkleProofLen and merkleProofLen <= merkleTreeDepth
     if (merkleTreeDepth !== undefined) {
         if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
             throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
@@ -76,7 +65,7 @@ export default async function generateNoirProof(
     }
 
     // If the paths of Noir circuit json files are not defined they will be automatically downloaded.
-    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleTreeDepth)
+    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleProofLength)
     const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
 
     // Prepare inputs for Noir program
@@ -86,9 +75,10 @@ export default async function generateNoirProof(
     // Format to valid input for circuit
     const hashPath = merkleProofSiblings.map((s) => s.toString() as `0x${string}`)
     // Index is a single number representation of the be_bits that indicate sibling index for all siblings
-    const indexInput = merkleProof.index.toString() as `0x${string}`
+    const indexes = merkleProof.index.toString() as `0x${string}`
 
     const merkleTreeRoot = merkleProof.root.toString() as `0x${string}`
+    // Following the circom related implementation, pass hashes for scope and message
     const hashedScope = hash(scope).toString() as `0x${string}`
     const hashedMessage = hash(message).toString() as `0x${string}`
 
@@ -99,7 +89,7 @@ export default async function generateNoirProof(
     // Generate witness
     const { witness } = await noir.execute({
         secretKey,
-        indexInput,
+        indexes,
         hashPath,
         merkleTreeRoot,
         scope: hashedScope,
@@ -110,6 +100,7 @@ export default async function generateNoirProof(
     const proofData = await backend.generateProof(witness)
     return {
         merkleTreeDepth,
+        merkleProofLength,
         merkleTreeRoot: merkleProof.root.toString() as `0x${string}`,
         nullifier: proofData.publicInputs[3].toString() as `0x${string}`,
         message: message.toString() as `0x${string}`,

@@ -12,9 +12,10 @@ export type SemaphoreProof = {
 
 export type SemaphoreNoirProof = {
     merkleTreeDepth: number
+    merkleProofLength: number
     merkleTreeRoot: string
-    message: string // unhashed
+    message: string
     nullifier: string
-    scope: string // unhashed
+    scope: string
     proofBytes: Uint8Array
 }

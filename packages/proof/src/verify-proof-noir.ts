@@ -7,16 +7,12 @@ import {
     requireString
 } from "@zk-kit/utils/error-handlers"
 import { UltraHonkBackend } from "@aztec/bb.js"
-import path from "path"
 import fs from "fs"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
+import maybeGetNoirArtifacts from "./utils"
 
-// TODO change this import
-const circuitPath = path.resolve(__dirname, "../../circuits-noir/target/circuit.json")
-const circuit = JSON.parse(fs.readFileSync(circuitPath, "utf-8"))
-
-export default async function verifyNoirProof(proof: SemaphoreNoirProof): Promise<boolean> {
+export default async function verifyNoirProof(proof: SemaphoreNoirProof, noirArtifactsPath?: string): Promise<boolean> {
     requireDefined(proof, "proof")
     requireObject(proof, "proof")
 
@@ -29,9 +25,18 @@ export default async function verifyNoirProof(proof: SemaphoreNoirProof): Promis
     requireString(scope, "proof.scope")
     requireUint8Array(proofBytes, "proof.proofBytes")
 
+    // This check is for compatibility with circom.
+    // The Noir circuits are parameterised by merkleProofLen and merkleProofLen <= merkleTreeDepth
     if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
         throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
     }
+    if (noirArtifactsPath) {
+        requireString(noirArtifactsPath, "snarkArtifacts")
+    }
+    // If the paths of Noir circuit json files are not defined they will be automatically downloaded.
+    // The circuit is defined by the merkleProof length
+    noirArtifactsPath ??= await maybeGetNoirArtifacts(proof.merkleProofLength)
+    const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
 
     const backend = new UltraHonkBackend(circuit.bytecode, { threads: 1 })
     const proofData = {
