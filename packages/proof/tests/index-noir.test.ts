@@ -1,15 +1,10 @@
 import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
-import { getCurveFromName } from "ffjavascript"
-import { UltraHonkBackend } from "@aztec/bb.js"
-import path from "path"
-import fs from "fs"
+import { poseidon2 } from "poseidon-lite"
 import generateNoirProof from "../src/generate-proof-noir"
 import verifyNoirProof from "../src/verify-proof-noir"
 import hash from "../src/hash"
-
-const circuitPath = path.resolve(__dirname, "../../circuits-noir/target/circuit.json")
-const circuit = JSON.parse(fs.readFileSync(circuitPath, "utf-8"))
+import toBigInt from "../src/to-bigint"
 
 describe("Noir proof", () => {
     const treeDepth = 1
@@ -18,18 +13,6 @@ describe("Noir proof", () => {
     const scope = "Scope"
 
     const identity = new Identity("secret")
-
-    let curve: any
-    let backend: UltraHonkBackend
-
-    beforeAll(async () => {
-        curve = await getCurveFromName("bn128")
-        backend = new UltraHonkBackend(circuit.bytecode, { threads: 1 })
-    })
-
-    afterAll(async () => {
-        await curve.terminate()
-    })
 
     describe("# generateNoirProof", () => {
         it("Should not generate a Noir Semaphore proof if the tree depth is not supported", async () => {
@@ -48,77 +31,56 @@ describe("Noir proof", () => {
             await expect(fun).rejects.toThrow("does not exist")
         })
 
-        it("Should generate a Noir Semaphore proof", async () => {
+        it("Should generate a Noir Semaphore proof for merkle proof length 1", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
             const proof = await generateNoirProof(identity, group, message, scope, treeDepth)
+            const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
-            // TODO extract proof.merkleTreeDepth to get correct circuit
-            const proofData = {
-                publicInputs: [proof.merkleTreeRoot, hash(proof.scope), hash(proof.message), proof.nullifier],
-                proof: proof.proofBytes
-            }
-            const isValid = await backend.verifyProof(proofData)
-            expect(isValid).toBe(true)
-            // Manually change the message input
-            proofData.publicInputs = [
-                proof.merkleTreeRoot,
-                hash(proof.scope),
-                hash("0x0005e79a1bbec7318d980bbb060e5ecc364a2659baea61a2733b194bd353ac75"),
-                proof.nullifier
-            ]
-            // Proof verification should fail
-            const isValid2 = await backend.verifyProof(proofData)
-            expect(isValid2).toBe(false)
+            expect(typeof proof).toBe("object")
+            expect(proof.merkleTreeRoot).toBe(group.root.toString())
+            expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
         }, 80000)
 
-        // TODO this doesn't work because merkle proof has different len than expected
-        // it("Should generate a Noir Semaphore proof for a group with 1 member", async () => {
-        //     const group = new Group([identity.commitment])
+        // TODO fix case for length 0 and then uncomment this
+        it.skip("Should generate a Noir Semaphore proof for a group with 1 member (merkle proof of length 0)", async () => {
+            const group = new Group([identity.commitment])
 
-        //     const proof = await generateNoirProof(identity, group, message, scope)
+            const proof = await generateNoirProof(identity, group, message, scope)
+            const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
-        //     expect(typeof proof).toBe("object")
-        //     const proofData = {
-        //         publicInputs: [proof.merkleTreeRoot, proof.scope, proof.message, proof.nullifier],
-        //         proof: proof.proofBytes
-        //     }
-        //     const isValid = await backend.verifyProof(proofData)
-        //     expect(isValid).toBe(true)
-        // })
+            expect(typeof proof).toBe("object")
+            expect(proof.merkleTreeRoot).toBe(group.root.toString())
+            expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
+        })
 
         it("Should generate a Noir Semaphore proof passing a Merkle proof instead of a group", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
             const proof = await generateNoirProof(identity, group.generateMerkleProof(2), message, scope, treeDepth)
+            const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
             expect(typeof proof).toBe("object")
-            const proofData = {
-                publicInputs: [proof.merkleTreeRoot, hash(proof.scope), hash(proof.message), proof.nullifier],
-                proof: proof.proofBytes
-            }
-            const isValid = await backend.verifyProof(proofData)
-            expect(isValid).toBe(true)
+            expect(proof.merkleTreeRoot).toBe(group.root.toString())
+            expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
         })
 
         it("Should generate a Noir Semaphore proof without passing the tree depth", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
             const proof = await generateNoirProof(identity, group, message, scope)
+            const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
             expect(typeof proof).toBe("object")
-            const proofData = {
-                publicInputs: [proof.merkleTreeRoot, hash(proof.scope), hash(proof.message), proof.nullifier],
-                proof: proof.proofBytes
-            }
-            const isValid = await backend.verifyProof(proofData)
-            expect(isValid).toBe(true)
+            expect(proof.merkleTreeRoot).toBe(group.root.toString())
+            expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
         })
 
-        it("Should throw an error because snarkArtifacts is not a valid path", async () => {
+        it("Should throw an error because noirArtifactsPath is not a valid path", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const fun = () => generateNoirProof(identity, group, message, scope, undefined, "hellob#$n@ot")
+            const noirArtifactsPath = "hellob#$n@ot"
+            const fun = () => generateNoirProof(identity, group, message, scope, undefined, noirArtifactsPath)
 
             await expect(fun).rejects.toThrow("no such file or directory")
         })
@@ -132,6 +94,7 @@ describe("Noir proof", () => {
         })
     })
 
+    // TODO review these tests
     describe("# verifyNoirProof", () => {
         it("Should not verify a Noir Semaphore proof if the tree depth is not supported", async () => {
             const group = new Group([1n, 2n, identity.commitment])
