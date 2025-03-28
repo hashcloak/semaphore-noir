@@ -1,7 +1,7 @@
 {
     "name": "@semaphore-protocol/circuits-noir",
     "version": "1.0.0",
-    "description": "Semaphore Circom circuits to generate zero-knowledge proofs.",
+    "description": "Semaphore Noir circuits to generate zero-knowledge proofs.",
     "license": "MIT",
     "files": [
         "src/",
