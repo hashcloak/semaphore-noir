@@ -38,7 +38,7 @@ fn main(
     hashPath: [Field; MAX_DEPTH], // the Merkle Tree inclusion proof
     merkleProofLength: u32, // the number of non-zero elements in hashPath
     merkleTreeRoot: pub Field,
-    hashScope: pub Field,
+    hashedScope: pub Field,
     hashedMessage: pub Field,
 ) -> pub Field {
     // Part 1
@@ -78,7 +78,7 @@ fn main(
 
     // Part 3
     // Obtain the nullifier by hashing the hashed scope and secret key.
-    let nullifier = poseidon([hashScope, secretKey]);
+    let nullifier = poseidon([hashedScope, secretKey]);
 
     nullifier
 }

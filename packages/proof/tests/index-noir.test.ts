@@ -7,7 +7,7 @@ import hash from "../src/hash"
 import toBigInt from "../src/to-bigint"
 
 describe("Noir proof", () => {
-    const treeDepth = 1
+    const merkleTreeDepth = 10
 
     const message = "Hello world"
     const scope = "Scope"
@@ -26,7 +26,7 @@ describe("Noir proof", () => {
         it("Should not generate Noir Semaphore proofs if the identity is not part of the group", async () => {
             const group = new Group([1n, 2n])
 
-            const fun = () => generateNoirProof(identity, group, message, scope, treeDepth)
+            const fun = () => generateNoirProof(identity, group, message, scope, merkleTreeDepth)
 
             await expect(fun).rejects.toThrow("does not exist")
         })
@@ -34,7 +34,7 @@ describe("Noir proof", () => {
         it("Should generate a Noir Semaphore proof for merkle proof length 1", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const proof = await generateNoirProof(identity, group, message, scope, treeDepth)
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
             const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
             expect(typeof proof).toBe("object")
@@ -42,29 +42,34 @@ describe("Noir proof", () => {
             expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
         }, 80000)
 
-        // TODO fix case for length 0 and then uncomment this
-        it.skip("Should generate a Noir Semaphore proof for a group with 1 member (merkle proof of length 0)", async () => {
+        it("Should generate a Noir Semaphore proof for a group with 1 member (merkle proof of length 0)", async () => {
             const group = new Group([identity.commitment])
-
-            const proof = await generateNoirProof(identity, group, message, scope)
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
             const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
             expect(typeof proof).toBe("object")
             expect(proof.merkleTreeRoot).toBe(group.root.toString())
             expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
-        })
+        }, 80000)
 
         it("Should generate a Noir Semaphore proof passing a Merkle proof instead of a group", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const proof = await generateNoirProof(identity, group.generateMerkleProof(2), message, scope, treeDepth)
+            const proof = await generateNoirProof(
+                identity,
+                group.generateMerkleProof(2),
+                message,
+                scope,
+                merkleTreeDepth
+            )
             const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
             expect(typeof proof).toBe("object")
             expect(proof.merkleTreeRoot).toBe(group.root.toString())
             expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
-        })
+        }, 80000)
 
+        // TODO why doesn't this test pass?
         it("Should generate a Noir Semaphore proof without passing the tree depth", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
@@ -74,7 +79,7 @@ describe("Noir proof", () => {
             expect(typeof proof).toBe("object")
             expect(proof.merkleTreeRoot).toBe(group.root.toString())
             expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
-        })
+        }, 80000)
 
         it("Should throw an error because noirArtifactsPath is not a valid path", async () => {
             const group = new Group([1n, 2n, identity.commitment])
@@ -88,40 +93,50 @@ describe("Noir proof", () => {
         it("Should throw an error because the message value is incorrect", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const fun = () => generateNoirProof(identity, group, Number.MAX_VALUE, scope, treeDepth)
+            const fun = () => generateNoirProof(identity, group, Number.MAX_VALUE, scope, merkleTreeDepth)
 
             await expect(fun).rejects.toThrow("overflow")
         })
     })
 
-    // TODO review these tests
     describe("# verifyNoirProof", () => {
         it("Should not verify a Noir Semaphore proof if the tree depth is not supported", async () => {
             const group = new Group([1n, 2n, identity.commitment])
-            const proof = await generateNoirProof(identity, group, message, scope, treeDepth)
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
             const fun = () => verifyNoirProof({ ...proof, merkleTreeDepth: 40 })
             await expect(fun).rejects.toThrow("tree depth must be")
-        })
+        }, 80000)
+
         it("Should return true if the proof is valid", async () => {
             const group = new Group([1n, 2n, identity.commitment])
-            const proof = await generateNoirProof(identity, group, message, scope, treeDepth)
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
             const isValid = await verifyNoirProof(proof)
             expect(isValid).toBe(true)
-        })
-        // TODO doesn't work because merkle proof has different length
-        // it("Should return false if the proof is not valid", async () => {
-        //     const group = new Group([1n, 2n, identity.commitment])
-        //     const proof = await generateNoirProof(identity, group.generateMerkleProof(0), message, scope, treeDepth)
-        //     const isValid = () => verifyNoirProof(proof)
-        // expect(isValid).toBe(false)
-        // })
+        }, 80000)
 
         it("Should return false if the message is incorrect", async () => {
             const group = new Group([1n, 2n, identity.commitment])
-            const proof = await generateNoirProof(identity, group, message, scope, treeDepth)
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
             proof.message = "0x0005e79a1bbec7318d980bbb060e5ecc364a2659baea61a2733b194bd353ac75"
 
-            // Proof verification should fail
+            const isValid = await verifyNoirProof(proof)
+            expect(isValid).toBe(false)
+        }, 80000)
+
+        it("Should return false if the scope is incorrect", async () => {
+            const group = new Group([1n, 2n, identity.commitment])
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
+            proof.scope = "0x0012345678"
+
+            const isValid = await verifyNoirProof(proof)
+            expect(isValid).toBe(false)
+        }, 80000)
+
+        it("Should return false if the merkleTreeRoot is incorrect", async () => {
+            const group = new Group([1n, 2n, identity.commitment])
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
+            proof.merkleTreeRoot = "0x0012345678999"
+
             const isValid = await verifyNoirProof(proof)
             expect(isValid).toBe(false)
         }, 80000)

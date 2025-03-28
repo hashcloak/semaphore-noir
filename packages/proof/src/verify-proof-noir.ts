@@ -25,8 +25,6 @@ export default async function verifyNoirProof(proof: SemaphoreNoirProof, noirArt
     requireString(scope, "proof.scope")
     requireUint8Array(proofBytes, "proof.proofBytes")
 
-    // This check is for compatibility with circom.
-    // The Noir circuits are parameterised by merkleProofLen and merkleProofLen <= merkleTreeDepth
     if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
         throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
     }
@@ -35,7 +33,7 @@ export default async function verifyNoirProof(proof: SemaphoreNoirProof, noirArt
     }
     // If the paths of Noir circuit json files are not defined they will be automatically downloaded.
     // The circuit is defined by the merkleProof length
-    noirArtifactsPath ??= await maybeGetNoirArtifacts(proof.merkleProofLength)
+    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleTreeDepth)
     const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
 
     const backend = new UltraHonkBackend(circuit.bytecode, { threads: 1 })

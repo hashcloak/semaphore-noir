@@ -42,7 +42,7 @@ function getCircuitInput(
     group: Group,
     secret: bigint,
     hashedScope: number,
-    message: number,
+    hashedMessage: number,
     MAX_DEPTH: number
 ) {
     const { siblings: merkleProofSiblings, index } = group.generateMerkleProof(leafIndex)
@@ -58,7 +58,7 @@ function getCircuitInput(
     const indexes = index.toString() as `0x${string}`
     const merkleTreeRoot = group.root.toString() as `0x${string}`
     const scopeInput = hashedScope.toString() as `0x${string}`
-    const messageInput = message.toString() as `0x${string}`
+    const messageInput = hashedMessage.toString() as `0x${string}`
 
     return {
         secretKey: secretInput,
@@ -67,7 +67,7 @@ function getCircuitInput(
         merkleProofLength,
         merkleTreeRoot,
         hashedScope: scopeInput,
-        message: messageInput
+        hashedMessage: messageInput
     }
 }
 
@@ -89,7 +89,7 @@ async function verifyForInputs(
         merkleProofLength: `0x${string}`
         merkleTreeRoot: `0x${string}`
         hashedScope: `0x${string}`
-        message: `0x${string}`
+        hashedMessage: `0x${string}`
     },
     program: any
 ) {
@@ -104,7 +104,7 @@ async function verifyForInputs(
 
 describe("Noir Semaphore circuit", () => {
     const hashedScope = 32
-    const message = 43
+    const hashedMessage = 43
 
     it("Should calculate the root and the nullifier correctly for prooflength 1", async () => {
         const secret = l - 1n
@@ -112,7 +112,7 @@ describe("Noir Semaphore circuit", () => {
 
         const commitment = poseidon2(mulPointEscalar(Base8, secret))
         const group = new Group([2n, 3n, commitment])
-        const inputs = getCircuitInput(2, group, secret, hashedScope, message, MAX_DEPTH)
+        const inputs = getCircuitInput(2, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
 
         const { noir, program } = await getCompiledNoirProgram(MAX_DEPTH)
         const { verified, proof } = await verifyForInputs(noir, inputs, program)
@@ -121,7 +121,7 @@ describe("Noir Semaphore circuit", () => {
         expect(verified).toBe(true)
         expect(BigInt(proof.publicInputs[0])).toEqual(group.root)
         expect(BigInt(proof.publicInputs[1])).toEqual(BigInt(hashedScope))
-        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(message))
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(hashedMessage))
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 
@@ -132,7 +132,7 @@ describe("Noir Semaphore circuit", () => {
         const commitment = poseidon2(mulPointEscalar(Base8, secret))
         const group = new Group([2n, 3n, 4n, 123456n, 222n, commitment])
         const leafIndex = 5
-        const inputs = getCircuitInput(leafIndex, group, secret, hashedScope, message, MAX_DEPTH)
+        const inputs = getCircuitInput(leafIndex, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
 
         const { noir, program } = await getCompiledNoirProgram(MAX_DEPTH)
         const { verified, proof } = await verifyForInputs(noir, inputs, program)
@@ -151,7 +151,7 @@ describe("Noir Semaphore circuit", () => {
         leaves.push(commitment) // the leaf we're proving
         const group = new Group(leaves)
         const leafIndex = 1023 // the 124th leaf, which is a right leaf
-        const inputs = getCircuitInput(leafIndex, group, secret, hashedScope, message, MAX_DEPTH)
+        const inputs = getCircuitInput(leafIndex, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
 
         const { noir, program } = await getCompiledNoirProgram(MAX_DEPTH)
         const { verified, proof } = await verifyForInputs(noir, inputs, program)
@@ -170,7 +170,7 @@ describe("Noir Semaphore circuit", () => {
         leaves.push(commitment) // the leaf we're proving
         const group = new Group(leaves)
         const leafIndex = 1024 // the 125th leaf, which is a left leaf
-        const inputs = getCircuitInput(leafIndex, group, secret, hashedScope, message, MAX_DEPTH)
+        const inputs = getCircuitInput(leafIndex, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
 
         const { noir, program } = await getCompiledNoirProgram(MAX_DEPTH)
         const { verified, proof } = await verifyForInputs(noir, inputs, program)
@@ -186,7 +186,7 @@ describe("Noir Semaphore circuit", () => {
 
         const commitment = poseidon2(mulPointEscalar(Base8, secret))
         const group = new Group([commitment, 2n, 3n])
-        const inputs = getCircuitInput(0, group, secret, hashedScope, message, MAX_DEPTH)
+        const inputs = getCircuitInput(0, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
 
         const { noir } = await getCompiledNoirProgram(MAX_DEPTH)
 
@@ -200,7 +200,7 @@ describe("Noir Semaphore circuit", () => {
         const commitment = poseidon2(mulPointEscalar(Base8, secret))
         const group = new Group([commitment, 2n, 3n])
 
-        const inputs = getCircuitInput(0, group, secret, hashedScope, message, MAX_DEPTH)
+        const inputs = getCircuitInput(0, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
         const { noir } = await getCompiledNoirProgram(MAX_DEPTH)
 
         await expect(noir.execute(inputs)).rejects.toThrow(/assert/i)
@@ -211,7 +211,7 @@ describe("Noir Semaphore circuit", () => {
         const group = new Group([commitment, 2n, 3n])
         const MAX_DEPTH = 10
 
-        const inputs = getCircuitInput(0, group, secret, hashedScope, message, MAX_DEPTH)
+        const inputs = getCircuitInput(0, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
         const { noir, program } = await getCompiledNoirProgram(MAX_DEPTH)
 
         const { verified, proof } = await verifyForInputs(noir, inputs, program)
@@ -221,7 +221,7 @@ describe("Noir Semaphore circuit", () => {
         expect(verified).toBe(true)
         expect(BigInt(proof.publicInputs[0])).toEqual(group.root)
         expect(BigInt(proof.publicInputs[1])).toEqual(BigInt(hashedScope))
-        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(message))
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(hashedMessage))
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 })

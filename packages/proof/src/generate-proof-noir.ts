@@ -54,8 +54,6 @@ export default async function generateNoirProof(
     }
 
     const merkleProofLength = merkleProof.siblings.length
-    // This check is for compatibility with circom.
-    // The Noir circuits are parameterised by merkleProofLen and merkleProofLen <= merkleTreeDepth
     if (merkleTreeDepth !== undefined) {
         if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
             throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
@@ -65,17 +63,16 @@ export default async function generateNoirProof(
     }
 
     // If the paths of Noir circuit json files are not defined they will be automatically downloaded.
-    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleProofLength)
+    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleTreeDepth)
     const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
 
     // Prepare inputs for Noir program
     const secretKey = identity.secretScalar.toString() as `0x${string}`
-
     const merkleProofSiblings = Array.from({ length: merkleTreeDepth }, (_, i) => merkleProof.siblings[i] ?? 0n)
     // Format to valid input for circuit
     const hashPath = merkleProofSiblings.map((s) => s.toString() as `0x${string}`)
     // Index is a single number representation of the be_bits that indicate sibling index for all siblings
-    const indexes = merkleProof.index.toString() as `0x${string}`
+    const indexes = BigInt(Number.isNaN(merkleProof.index) ? 0 : merkleProof.index).toString() as `0x${string}`
 
     const merkleTreeRoot = merkleProof.root.toString() as `0x${string}`
     // Following the circom related implementation, pass hashes for scope and message
@@ -91,9 +88,10 @@ export default async function generateNoirProof(
         secretKey,
         indexes,
         hashPath,
+        merkleProofLength,
         merkleTreeRoot,
-        scope: hashedScope,
-        message: hashedMessage
+        hashedScope,
+        hashedMessage
     })
 
     // Generate proof
