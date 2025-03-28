@@ -19,10 +19,6 @@
         "build": "tsc",
         "test": "jest"
     },
-    "peerDependencies": {
-        "@semaphore-protocol/group": "^4.9.1",
-        "@semaphore-protocol/identity": "4.9.1"
-    },
     "dependencies": {
         "@aztec/bb.js": "0.72.1",
         "@noir-lang/noir_js": "1.0.0-beta.2",

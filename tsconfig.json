@@ -22,5 +22,6 @@
             "target": "esnext",
             "module": "commonjs"
         }
-    }
+    },
+    "types": []
 }
