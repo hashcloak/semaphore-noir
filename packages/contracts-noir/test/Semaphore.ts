@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable jest/valid-expect */
-import { Group, Identity, SemaphoreProof, generateProof } from "@semaphore-protocol/core"
+import { Group, Identity, SemaphoreNoirProof, generateNoirProof } from "@semaphore-protocol/core"
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers"
 import { expect } from "chai"
 import { Signer, ZeroAddress } from "ethers"
@@ -337,7 +337,14 @@ describe("Semaphore", () => {
 
             const merkleTreeDepth = 12
             const message = 2
-            const proof: SemaphoreProof = await generateProof(identity, group, message, group.root, merkleTreeDepth)
+            // const proof: SemaphoreProof = await generateProof(identity, group, message, group.root, merkleTreeDepth)
+            const proof: SemaphoreNoirProof = await generateNoirProof(
+                identity,
+                group,
+                message,
+                group.root,
+                merkleTreeDepth
+            )
 
             return {
                 semaphoreContract,
@@ -392,7 +399,7 @@ describe("Semaphore", () => {
 
             group.addMembers([members[0], members[1]])
 
-            const proof = await generateProof(identity, group, message, group.root, merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, group.root, merkleTreeDepth)
             const transaction = semaphoreContract.verifyProof(groupId, proof)
 
             await expect(transaction).to.be.revertedWithCustomError(
@@ -412,7 +419,7 @@ describe("Semaphore", () => {
             group.addMembers(members)
 
             const scope = "random-scope"
-            const proof = await generateProof(identity, group, message, scope, merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
 
             proof.merkleTreeDepth = 33
 
@@ -461,7 +468,7 @@ describe("Semaphore", () => {
 
             group.addMember(members[0])
 
-            const proof = await generateProof(identity, group, message, group.root, merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, group.root, merkleTreeDepth)
 
             return { semaphoreContract, groupId, proof, accountAddresses }
         }
@@ -502,7 +509,7 @@ describe("Semaphore", () => {
 
             // Validate a proof.
 
-            const proof = await generateProof(identity, group, 42, group.root)
+            const proof = await generateNoirProof(identity, group, 42, group.root)
 
             const transaction = await semaphoreContract.validateProof(groupId, proof)
 
@@ -515,7 +522,7 @@ describe("Semaphore", () => {
                     proof.nullifier,
                     proof.message,
                     proof.merkleTreeRoot,
-                    proof.points
+                    proof.proofBytes
                 )
         })
 
@@ -541,7 +548,7 @@ describe("Semaphore", () => {
                     proof.nullifier,
                     proof.message,
                     proof.merkleTreeRoot,
-                    proof.points
+                    proof.proofBytes
                 )
         })
 
@@ -559,7 +566,7 @@ describe("Semaphore", () => {
                     proof.nullifier,
                     proof.message,
                     proof.merkleTreeRoot,
-                    proof.points
+                    proof.proofBytes
                 )
         })
 

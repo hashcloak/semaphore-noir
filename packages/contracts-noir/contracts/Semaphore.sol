@@ -135,7 +135,7 @@ contract Semaphore is ISemaphore, SemaphoreGroups {
             proof.nullifier,
             proof.message,
             proof.scope,
-            proof.proof
+            proof.proofBytes
         );
     }
 
@@ -181,7 +181,7 @@ contract Semaphore is ISemaphore, SemaphoreGroups {
         publicInput[2] = bytes32(_hash(proof.message));
         publicInput[3] = bytes32(proof.nullifier);
 
-        return verifier.verify(proof.proof, publicInput, proof.merkleTreeDepth);
+        return verifier.verify(proof.proofBytes, publicInput, proof.merkleTreeDepth);
     }
 
     // TODO - check if the hash function is compatible with noirjs
