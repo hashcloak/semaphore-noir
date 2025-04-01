@@ -6,15 +6,14 @@ import {MAX_DEPTH} from "./Constants.sol";
 import {SemaphoreVerifierKeyPts} from "./SemaphoreNoirVerifierKeyPts.sol";
 import {IVerifier} from "../interfaces/ISemaphoreNoirVerifier.sol";
 
-uint256 constant N = 16384;
-uint256 constant LOG_N = 14;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 4;
 library HonkVerificationKey {
     function loadVerificationKey(uint256 merkleTreeDepth) internal pure returns (Honk.VerificationKey memory) {
         uint256[54] memory _vkPoints = SemaphoreVerifierKeyPts.getPts(merkleTreeDepth);
+        (uint256 n, uint256 logN) = getNAndLogN(merkleTreeDepth);
         Honk.VerificationKey memory vk = Honk.VerificationKey({
-            circuitSize: uint256(16384),
-            logCircuitSize: uint256(14),
+            circuitSize: uint256(n),
+            logCircuitSize: uint256(logN),
             publicInputsSize: uint256(4),
             ql: Honk.G1Point({x: uint256(_vkPoints[0]), y: uint256(_vkPoints[1])}),
             qr: Honk.G1Point({x: uint256(_vkPoints[2]), y: uint256(_vkPoints[3])}),
@@ -45,6 +44,19 @@ library HonkVerificationKey {
             lagrangeLast: Honk.G1Point({x: uint256(_vkPoints[52]), y: uint256(_vkPoints[53])})
         });
         return vk;
+    }
+
+    function getNAndLogN(uint256 merkleTreeDepth) internal pure returns (uint256, uint256) {
+        if (merkleTreeDepth < 6) {
+            return (16384, 14);
+        }
+        if (merkleTreeDepth < 14) {
+            return (32768, 15);
+        }
+        if (merkleTreeDepth < 32) {
+            return (65536, 16);
+        }
+        return (131072, 17);
     }
 }
 
@@ -1492,15 +1504,10 @@ library CommitmentSchemeLib {
 
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
-
-    uint256 immutable n;
-    uint256 immutable logN;
     uint256 immutable numPublicInputs;
 
-    constructor(uint256 _n, uint256 _logN, uint256 _numPublicInputs) {
+    constructor(uint256 _numPublicInputs) {
         SemaphoreVerifierKeyPts.checkInvariant(MAX_DEPTH);
-        n = _n;
-        logN = _logN;
         numPublicInputs = _numPublicInputs;
     }
 
@@ -1530,11 +1537,12 @@ abstract contract BaseHonkVerifier is IVerifier {
             publicInputs,
             t.relationParameters.beta,
             t.relationParameters.gamma,
-            p.publicInputsOffset
+            p.publicInputsOffset,
+            vk.circuitSize
         );
 
         // Sumcheck
-        bool sumcheckVerified = verifySumcheck(p, t);
+        bool sumcheckVerified = verifySumcheck(p, t, vk.logCircuitSize);
         if (!sumcheckVerified) revert SumcheckFailed();
 
         bool shpleminiVerified = verifyShplemini(p, vk, t);
@@ -1547,7 +1555,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         bytes32[] memory publicInputs,
         Fr beta,
         Fr gamma,
-        uint256 offset
+        uint256 offset,
+        uint256 n
     ) internal view returns (Fr publicInputDelta) {
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
@@ -1571,7 +1580,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         publicInputDelta = FrLib.div(numerator, denominator);
     }
 
-    function verifySumcheck(Honk.Proof memory proof, Transcript memory tp) internal view returns (bool verified) {
+    function verifySumcheck(
+        Honk.Proof memory proof,
+        Transcript memory tp,
+        uint256 logN
+    ) internal view returns (bool verified) {
         Fr roundTarget;
         Fr powPartialEvaluation = Fr.wrap(1);
 
@@ -1688,7 +1701,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
         Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals = CommitmentSchemeLib
-            .computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, logN);
+            .computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, vk.logCircuitSize);
 
         mem.unshiftedScalar = inverse_vanishing_evals[0] + (tp.shplonkNu * inverse_vanishing_evals[1]);
         mem.shiftedScalar =
@@ -1762,7 +1775,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         mem.batchingChallenge = tp.shplonkNu.sqr();
 
         for (uint256 i; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= (logN - 1);
+            bool dummy_round = i >= (vk.logCircuitSize - 1);
 
             Fr scalingFactor = Fr.wrap(0);
             if (!dummy_round) {
@@ -1785,7 +1798,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
             powers_of_evaluation_challenge,
-            logN
+            vk.logCircuitSize
         );
 
         mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * inverse_vanishing_evals[0]);
@@ -1854,7 +1867,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     }
 }
 
-contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
+contract SemaphoreNoirVerifier is BaseHonkVerifier(NUMBER_OF_PUBLIC_INPUTS) {
     function loadVerificationKey(uint256 merkleTreeDepth) internal pure override returns (Honk.VerificationKey memory) {
         return HonkVerificationKey.loadVerificationKey(merkleTreeDepth);
     }

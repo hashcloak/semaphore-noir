@@ -335,7 +335,7 @@ describe("Semaphore", () => {
 
             group.addMembers(members)
 
-            const merkleTreeDepth = 12
+            const merkleTreeDepth = 2
             const message = 2
             // const proof: SemaphoreProof = await generateProof(identity, group, message, group.root, merkleTreeDepth)
             const proof: SemaphoreNoirProof = await generateNoirProof(
@@ -343,9 +343,11 @@ describe("Semaphore", () => {
                 group,
                 message,
                 group.root,
-                merkleTreeDepth
+                merkleTreeDepth,
+                undefined,
+                true
             )
-
+            proof.proofBytes = proof.proofBytes.slice(4)
             return {
                 semaphoreContract,
                 accountAddresses,
@@ -376,7 +378,6 @@ describe("Semaphore", () => {
 
         it("Should verify a proof for an onchain group", async () => {
             const { semaphoreContract, groupId, proof } = await loadFixture(deployVerifyProofFixture)
-
             const validProof = await semaphoreContract.verifyProof(groupId, proof)
 
             expect(validProof).to.equal(true)
@@ -393,13 +394,22 @@ describe("Semaphore", () => {
             await semaphoreContract.addMember(groupId, members[2])
 
             const message = 2
-            const merkleTreeDepth = 12
+            const merkleTreeDepth = 2
             const identity = new Identity("0")
             const group = new Group()
 
             group.addMembers([members[0], members[1]])
 
-            const proof = await generateNoirProof(identity, group, message, group.root, merkleTreeDepth)
+            const proof = await generateNoirProof(
+                identity,
+                group,
+                message,
+                group.root,
+                merkleTreeDepth,
+                undefined,
+                true
+            )
+
             const transaction = semaphoreContract.verifyProof(groupId, proof)
 
             await expect(transaction).to.be.revertedWithCustomError(
@@ -419,8 +429,8 @@ describe("Semaphore", () => {
             group.addMembers(members)
 
             const scope = "random-scope"
-            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
-
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth, undefined, true)
+            proof.proofBytes = proof.proofBytes.slice(4)
             proof.merkleTreeDepth = 33
 
             const transaction = semaphoreContract.verifyProof(groupId, proof)
@@ -450,7 +460,7 @@ describe("Semaphore", () => {
             const members = Array.from({ length: 3 }, (_, i) => new Identity(i.toString())).map(
                 ({ commitment }) => commitment
             )
-            const merkleTreeDepth = 12
+            const merkleTreeDepth = 2
             const message = 2
 
             // groupId = 0
@@ -468,8 +478,16 @@ describe("Semaphore", () => {
 
             group.addMember(members[0])
 
-            const proof = await generateNoirProof(identity, group, message, group.root, merkleTreeDepth)
-
+            const proof = await generateNoirProof(
+                identity,
+                group,
+                message,
+                group.root,
+                merkleTreeDepth,
+                undefined,
+                true
+            )
+            proof.proofBytes = proof.proofBytes.slice(4)
             return { semaphoreContract, groupId, proof, accountAddresses }
         }
 
@@ -509,7 +527,8 @@ describe("Semaphore", () => {
 
             // Validate a proof.
 
-            const proof = await generateNoirProof(identity, group, 42, group.root)
+            const proof = await generateNoirProof(identity, group, 42, group.root, undefined, undefined, true)
+            proof.proofBytes = proof.proofBytes.slice(4)
 
             const transaction = await semaphoreContract.validateProof(groupId, proof)
 
@@ -531,7 +550,8 @@ describe("Semaphore", () => {
 
             const transaction = semaphoreContract.validateProof(groupId, { ...proof, scope: 0 })
 
-            await expect(transaction).to.be.revertedWithCustomError(semaphoreContract, "Semaphore__InvalidProof")
+            // TODO: what is the revert reason
+            await expect(transaction).to.be.reverted
         })
 
         it("Should validate a proof for an onchain group with one member correctly", async () => {

@@ -1,5 +1,5 @@
 {
-    "name": "semaphore-noir-contracts",
+    "name": "semaphore-contracts-noir",
     "private": true,
     "scripts": {
         "start": "hardhat node",

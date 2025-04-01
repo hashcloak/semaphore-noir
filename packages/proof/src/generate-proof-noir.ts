@@ -17,7 +17,8 @@ export default async function generateNoirProof(
     message: BigNumberish | Uint8Array | string,
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
-    noirArtifactsPath?: string
+    noirArtifactsPath?: string,
+    keccak?: boolean
 ): Promise<SemaphoreNoirProof> {
     requireDefined(identity, "identity")
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
@@ -95,7 +96,12 @@ export default async function generateNoirProof(
     })
 
     // Generate proof
-    const proofData = await backend.generateProof(witness)
+    let proofData
+    if (keccak) {
+        proofData = await backend.generateProof(witness, { keccak })
+    } else {
+        proofData = await backend.generateProof(witness)
+    }
     return {
         merkleTreeDepth,
         merkleProofLength,

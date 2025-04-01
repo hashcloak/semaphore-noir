@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-/// @title SemaphoreVerifier contract interface.
+/// @title SemaphoreNoirVerifier contract interface.
 interface IVerifier {
     function verify(
         bytes calldata _proof,

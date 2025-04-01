@@ -20,13 +20,13 @@ async function main() {
         throw Error(`Network '${network}' is not supported`)
     }
 
-    const semaphoreVerifierAddress = getDeployedContractAddress(network, "SemaphoreVerifier")
+    const semaphoreNoirVerifierAddress = getDeployedContractAddress(network, "SemaphoreNoirVerifier")
     const poseidonT3Address = getDeployedContractAddress(network, "PoseidonT3")
     const semaphoreAddress = getDeployedContractAddress(network, "Semaphore")
 
-    await verify(semaphoreVerifierAddress)
+    await verify(semaphoreNoirVerifierAddress)
     await verify(poseidonT3Address)
-    await verify(semaphoreAddress, [semaphoreVerifierAddress])
+    await verify(semaphoreAddress, [semaphoreNoirVerifierAddress])
 }
 
 main()

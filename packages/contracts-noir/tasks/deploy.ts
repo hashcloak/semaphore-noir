@@ -8,16 +8,16 @@ task("deploy", "Deploy a Semaphore contract")
     .addOptionalParam<boolean>("logs", "Print the logs", true, types.boolean)
     .setAction(
         async (
-            { logs, verifier: semaphoreVerifierAddress, poseidon: poseidonT3Address },
+            { logs, verifier: semaphoreNoirVerifierAddress, poseidon: poseidonT3Address },
             { ethers, hardhatArguments }
         ): Promise<any> => {
             const startBlock = await ethers.provider.getBlockNumber()
 
-            if (!semaphoreVerifierAddress) {
-                semaphoreVerifierAddress = await deploy(ethers, "SemaphoreVerifier", hardhatArguments.network)
+            if (!semaphoreNoirVerifierAddress) {
+                semaphoreNoirVerifierAddress = await deploy(ethers, "SemaphoreNoirVerifier", hardhatArguments.network)
 
                 if (logs) {
-                    console.info(`SemaphoreVerifier contract has been deployed to: ${semaphoreVerifierAddress}`)
+                    console.info(`SemaphoreNoirVerifier contract has been deployed to: ${semaphoreNoirVerifierAddress}`)
                 }
             }
 
@@ -33,7 +33,7 @@ task("deploy", "Deploy a Semaphore contract")
                 ethers,
                 "Semaphore",
                 hardhatArguments.network,
-                [semaphoreVerifierAddress],
+                [semaphoreNoirVerifierAddress],
                 {
                     libraries: {
                         PoseidonT3: poseidonT3Address
@@ -48,8 +48,8 @@ task("deploy", "Deploy a Semaphore contract")
             saveDeployedContracts(
                 [
                     {
-                        name: "SemaphoreVerifier",
-                        address: semaphoreVerifierAddress,
+                        name: "SemaphoreNoirVerifier",
+                        address: semaphoreNoirVerifierAddress,
                         startBlock
                     },
                     {
@@ -68,7 +68,7 @@ task("deploy", "Deploy a Semaphore contract")
 
             return {
                 semaphore: await ethers.getContractAt("Semaphore", semaphoreAddress),
-                verifierAddress: semaphoreVerifierAddress,
+                verifierAddress: semaphoreNoirVerifierAddress,
                 poseidonAddress: poseidonT3Address
             }
         }

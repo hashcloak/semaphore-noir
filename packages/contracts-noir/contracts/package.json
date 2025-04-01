@@ -1,5 +1,5 @@
 {
-    "name": "@semaphore-protocol/noir-contracts",
+    "name": "@semaphore-protocol/contracts-noir",
     "version": "1.0.0",
     "description": "Semaphore Noir contracts to manage groups and broadcast anonymous signals.",
     "license": "MIT",
