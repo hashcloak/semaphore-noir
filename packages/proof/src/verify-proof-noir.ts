@@ -7,6 +7,7 @@ import {
     requireString
 } from "@zk-kit/utils/error-handlers"
 import { UltraHonkBackend } from "@aztec/bb.js"
+import os from "os"
 import fs from "fs"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
@@ -36,7 +37,7 @@ export default async function verifyNoirProof(proof: SemaphoreNoirProof, noirArt
     noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleTreeDepth)
     const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
 
-    const backend = new UltraHonkBackend(circuit.bytecode, { threads: 1 })
+    const backend = new UltraHonkBackend(circuit.bytecode, { threads: os.cpus().length })
     const proofData = {
         publicInputs: [proof.merkleTreeRoot, hash(proof.scope), hash(proof.message), proof.nullifier],
         proof: proof.proofBytes

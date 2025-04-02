@@ -3,6 +3,7 @@ import type { Identity } from "@semaphore-protocol/identity"
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
 import { requireDefined, requireNumber, requireObject, requireTypes, requireString } from "@zk-kit/utils/error-handlers"
 import type { BigNumberish } from "ethers"
+import os from "os"
 import fs from "fs"
 import { UltraHonkBackend } from "@aztec/bb.js"
 import { Noir } from "@noir-lang/noir_js"
@@ -81,7 +82,7 @@ export default async function generateNoirProof(
 
     // Initialize Noir with the compiled circuit
     const noir = new Noir(circuit as any)
-    const backend = new UltraHonkBackend(circuit.bytecode, { threads: 1 })
+    const backend = new UltraHonkBackend(circuit.bytecode, { threads: os.cpus().length })
 
     // Generate witness
     const { witness } = await noir.execute({
