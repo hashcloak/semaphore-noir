@@ -143,7 +143,7 @@ contract Semaphore is ISemaphore, SemaphoreGroups {
     function verifyProof(
         uint256 groupId,
         SemaphoreProof calldata proof
-    ) public view override onlyExistingGroup(groupId) returns (bool) {
+    ) public override onlyExistingGroup(groupId) returns (bool) {
         // The function will revert if the Merkle tree depth is not supported.
         if (proof.merkleTreeDepth < MIN_DEPTH || proof.merkleTreeDepth > MAX_DEPTH) {
             revert Semaphore__MerkleTreeDepthIsNotSupported();
@@ -184,7 +184,6 @@ contract Semaphore is ISemaphore, SemaphoreGroups {
         return verifier.verify(proof.proofBytes, publicInput, proof.merkleTreeDepth);
     }
 
-    // TODO - check if the hash function is compatible with noirjs
     /// @dev Creates a keccak256 hash of a message compatible with the SNARK scalar modulus.
     /// @param message: Message to be hashed.
     /// @return Message digest.

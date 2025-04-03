@@ -7,5 +7,5 @@ interface IVerifier {
         bytes calldata _proof,
         bytes32[] calldata _publicInputs,
         uint256 merkleTreeDepth
-    ) external view returns (bool);
+    ) external returns (bool);
 }

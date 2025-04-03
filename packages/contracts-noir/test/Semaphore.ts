@@ -335,7 +335,7 @@ describe("Semaphore", () => {
 
             group.addMembers(members)
 
-            const merkleTreeDepth = 2
+            const merkleTreeDepth = 12
             const message = 2
             // const proof: SemaphoreProof = await generateProof(identity, group, message, group.root, merkleTreeDepth)
             const proof: SemaphoreNoirProof = await generateNoirProof(
@@ -378,8 +378,8 @@ describe("Semaphore", () => {
 
         it("Should verify a proof for an onchain group", async () => {
             const { semaphoreContract, groupId, proof } = await loadFixture(deployVerifyProofFixture)
-            const validProof = await semaphoreContract.verifyProof(groupId, proof)
-
+            // use static call so we can retrieve the value of a non-view function
+            const validProof = await semaphoreContract.verifyProof.staticCall(groupId, proof)
             expect(validProof).to.equal(true)
         })
 
@@ -460,7 +460,7 @@ describe("Semaphore", () => {
             const members = Array.from({ length: 3 }, (_, i) => new Identity(i.toString())).map(
                 ({ commitment }) => commitment
             )
-            const merkleTreeDepth = 2
+            const merkleTreeDepth = 20
             const message = 2
 
             // groupId = 0

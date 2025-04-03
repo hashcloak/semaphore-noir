@@ -1,64 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2022 Aztec
-pragma solidity >=0.8.21;
 
 import {MAX_DEPTH} from "./Constants.sol";
-import {SemaphoreVerifierKeyPts} from "./SemaphoreNoirVerifierKeyPts.sol";
 import {IVerifier} from "../interfaces/ISemaphoreNoirVerifier.sol";
 
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 4;
-library HonkVerificationKey {
-    function loadVerificationKey(uint256 merkleTreeDepth) internal pure returns (Honk.VerificationKey memory) {
-        uint256[54] memory _vkPoints = SemaphoreVerifierKeyPts.getPts(merkleTreeDepth);
-        (uint256 n, uint256 logN) = getNAndLogN(merkleTreeDepth);
-        Honk.VerificationKey memory vk = Honk.VerificationKey({
-            circuitSize: uint256(n),
-            logCircuitSize: uint256(logN),
-            publicInputsSize: uint256(4),
-            ql: Honk.G1Point({x: uint256(_vkPoints[0]), y: uint256(_vkPoints[1])}),
-            qr: Honk.G1Point({x: uint256(_vkPoints[2]), y: uint256(_vkPoints[3])}),
-            qo: Honk.G1Point({x: uint256(_vkPoints[4]), y: uint256(_vkPoints[5])}),
-            q4: Honk.G1Point({x: uint256(_vkPoints[6]), y: uint256(_vkPoints[7])}),
-            qm: Honk.G1Point({x: uint256(_vkPoints[8]), y: uint256(_vkPoints[9])}),
-            qc: Honk.G1Point({x: uint256(_vkPoints[10]), y: uint256(_vkPoints[11])}),
-            qArith: Honk.G1Point({x: uint256(_vkPoints[12]), y: uint256(_vkPoints[13])}),
-            qDeltaRange: Honk.G1Point({x: uint256(_vkPoints[14]), y: uint256(_vkPoints[15])}),
-            qElliptic: Honk.G1Point({x: uint256(_vkPoints[16]), y: uint256(_vkPoints[17])}),
-            qAux: Honk.G1Point({x: uint256(_vkPoints[18]), y: uint256(_vkPoints[19])}),
-            qLookup: Honk.G1Point({x: uint256(_vkPoints[20]), y: uint256(_vkPoints[21])}),
-            qPoseidon2External: Honk.G1Point({x: uint256(_vkPoints[22]), y: uint256(_vkPoints[23])}),
-            qPoseidon2Internal: Honk.G1Point({x: uint256(_vkPoints[24]), y: uint256(_vkPoints[25])}),
-            s1: Honk.G1Point({x: uint256(_vkPoints[26]), y: uint256(_vkPoints[27])}),
-            s2: Honk.G1Point({x: uint256(_vkPoints[28]), y: uint256(_vkPoints[29])}),
-            s3: Honk.G1Point({x: uint256(_vkPoints[30]), y: uint256(_vkPoints[31])}),
-            s4: Honk.G1Point({x: uint256(_vkPoints[32]), y: uint256(_vkPoints[33])}),
-            t1: Honk.G1Point({x: uint256(_vkPoints[34]), y: uint256(_vkPoints[35])}),
-            t2: Honk.G1Point({x: uint256(_vkPoints[36]), y: uint256(_vkPoints[37])}),
-            t3: Honk.G1Point({x: uint256(_vkPoints[38]), y: uint256(_vkPoints[39])}),
-            t4: Honk.G1Point({x: uint256(_vkPoints[40]), y: uint256(_vkPoints[41])}),
-            id1: Honk.G1Point({x: uint256(_vkPoints[42]), y: uint256(_vkPoints[43])}),
-            id2: Honk.G1Point({x: uint256(_vkPoints[44]), y: uint256(_vkPoints[45])}),
-            id3: Honk.G1Point({x: uint256(_vkPoints[46]), y: uint256(_vkPoints[47])}),
-            id4: Honk.G1Point({x: uint256(_vkPoints[48]), y: uint256(_vkPoints[49])}),
-            lagrangeFirst: Honk.G1Point({x: uint256(_vkPoints[50]), y: uint256(_vkPoints[51])}),
-            lagrangeLast: Honk.G1Point({x: uint256(_vkPoints[52]), y: uint256(_vkPoints[53])})
-        });
-        return vk;
-    }
-
-    function getNAndLogN(uint256 merkleTreeDepth) internal pure returns (uint256, uint256) {
-        if (merkleTreeDepth < 6) {
-            return (16384, 14);
-        }
-        if (merkleTreeDepth < 14) {
-            return (32768, 15);
-        }
-        if (merkleTreeDepth < 32) {
-            return (65536, 16);
-        }
-        return (131072, 17);
-    }
-}
 
 pragma solidity ^0.8.27;
 
@@ -1507,7 +1453,6 @@ abstract contract BaseHonkVerifier is IVerifier {
     uint256 immutable numPublicInputs;
 
     constructor(uint256 _numPublicInputs) {
-        SemaphoreVerifierKeyPts.checkInvariant(MAX_DEPTH);
         numPublicInputs = _numPublicInputs;
     }
 
@@ -1515,13 +1460,13 @@ abstract contract BaseHonkVerifier is IVerifier {
     error SumcheckFailed();
     error ShpleminiFailed();
 
-    function loadVerificationKey(uint256 merkleTreeDepth) internal pure virtual returns (Honk.VerificationKey memory);
+    function loadVerificationKey(uint256 merkleTreeDepth) internal virtual returns (Honk.VerificationKey memory);
 
     function verify(
         bytes calldata proof,
         bytes32[] calldata publicInputs,
         uint256 merkleTreeDepth
-    ) public view override returns (bool) {
+    ) public override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey(merkleTreeDepth);
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
@@ -1867,8 +1812,45 @@ abstract contract BaseHonkVerifier is IVerifier {
     }
 }
 
-contract SemaphoreNoirVerifier is BaseHonkVerifier(NUMBER_OF_PUBLIC_INPUTS) {
-    function loadVerificationKey(uint256 merkleTreeDepth) internal pure override returns (Honk.VerificationKey memory) {
-        return HonkVerificationKey.loadVerificationKey(merkleTreeDepth);
+contract SemaphoreNoirVerifier is BaseHonkVerifier {
+    address private vkPts1Addr;
+    address private vkPts2Addr;
+    address private honkVkAddr;
+
+    constructor(
+        address _vkPts1Addr,
+        address _vkPts2Addr,
+        address _honkVkAddr
+    ) BaseHonkVerifier(NUMBER_OF_PUBLIC_INPUTS) {
+        vkPts1Addr = _vkPts1Addr;
+        vkPts2Addr = _vkPts2Addr;
+        honkVkAddr = _honkVkAddr;
+        (bool success, ) = vkPts1Addr.delegatecall(abi.encodeWithSignature("checkInvariant(uint8)", MAX_DEPTH));
+        if (!success) {
+            revert("MaxDepthInvariantViolated");
+        }
+        (success, ) = vkPts2Addr.delegatecall(abi.encodeWithSignature("checkInvariant(uint8)", MAX_DEPTH));
+        if (!success) {
+            revert("MaxDepthInvariantViolated");
+        }
+    }
+    function loadVerificationKey(
+        uint256 merkleTreeDepth
+    ) internal override returns (Honk.VerificationKey memory honkVk) {
+        if (merkleTreeDepth < 17) {
+            (bool success, bytes memory _vkBytes) = honkVkAddr.delegatecall(
+                abi.encodeWithSignature("loadVerificationKey(uint256,address)", merkleTreeDepth, vkPts1Addr)
+            );
+            if (success) {
+                honkVk = abi.decode(_vkBytes, (Honk.VerificationKey));
+            }
+        } else {
+            (bool success, bytes memory _vkBytes) = honkVkAddr.delegatecall(
+                abi.encodeWithSignature("loadVerificationKey(uint256,address)", merkleTreeDepth, vkPts2Addr)
+            );
+            if (success) {
+                honkVk = abi.decode(_vkBytes, (Honk.VerificationKey));
+            }
+        }
     }
 }
