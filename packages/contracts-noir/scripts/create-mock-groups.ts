@@ -9,9 +9,9 @@ async function main() {
         throw Error("Please, define a supported network")
     }
 
-    const semaphoreAddress = getDeployedContractAddress(hardhatArguments.network, "Semaphore")
+    const semaphoreAddress = getDeployedContractAddress(hardhatArguments.network, "SemaphoreNoir")
 
-    const semaphoreContract = await ethers.getContractAt("Semaphore", semaphoreAddress)
+    const semaphoreContract = await ethers.getContractAt("SemaphoreNoir", semaphoreAddress)
 
     const [admin] = await ethers.getSigners()
     const adminAddress = await admin.getAddress()

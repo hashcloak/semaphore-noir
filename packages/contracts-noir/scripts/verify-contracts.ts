@@ -13,6 +13,7 @@ async function verify(address: string, constructorArguments?: any[]): Promise<vo
     }
 }
 
+// TODO - verify the libraries in contracts/base
 async function main() {
     const { network } = hardhatArguments
 
@@ -22,7 +23,7 @@ async function main() {
 
     const semaphoreNoirVerifierAddress = getDeployedContractAddress(network, "SemaphoreNoirVerifier")
     const poseidonT3Address = getDeployedContractAddress(network, "PoseidonT3")
-    const semaphoreAddress = getDeployedContractAddress(network, "Semaphore")
+    const semaphoreAddress = getDeployedContractAddress(network, "SemaphoreNoir")
 
     await verify(semaphoreNoirVerifierAddress)
     await verify(poseidonT3Address)

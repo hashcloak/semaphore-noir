@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.21;
 
+// Library for retrieving verification keys for UltraHonk
 library HonkVerificationKey {
+    // returning verification keys of the respecting merkle tree depth
     function loadVerificationKey(uint256 merkleTreeDepth, address vkLib) external returns (VerificationKey memory) {
+        //TODO - refactor, prevent using delegatecall
         (bool success, bytes memory _vkPointsBytes) = vkLib.delegatecall(
             abi.encodeWithSignature("getPts(uint256)", merkleTreeDepth)
         );
-        // uint256[42] memory _vkPoints = SemaphoreVerifierKeyPts.getPts(
-        //     merkleTreeDepth
-        // );
         uint256[42] memory _vkPoints;
         if (success) {
             _vkPoints = abi.decode(_vkPointsBytes, (uint256[42]));
@@ -67,6 +67,7 @@ library HonkVerificationKey {
         return vk;
     }
 
+    // returning circuit size N and logN based on merkle tree depth
     function getNAndLogN(uint256 merkleTreeDepth) internal pure returns (uint256, uint256) {
         if (merkleTreeDepth < 6) {
             return (16384, 14);
@@ -80,6 +81,7 @@ library HonkVerificationKey {
         return (131072, 17);
     }
 
+    //TODO - duplicate struct, refactor
     struct VerificationKey {
         // Misc Params
         uint256 circuitSize;
@@ -119,6 +121,7 @@ library HonkVerificationKey {
         G1Point lagrangeLast;
     }
 
+    //TODO - duplicate struct, refactor
     struct G1Point {
         uint256 x;
         uint256 y;

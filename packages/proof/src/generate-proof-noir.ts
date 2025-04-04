@@ -18,6 +18,7 @@ export default async function generateNoirProof(
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
     noirArtifactsPath?: string,
+    // use keccak hash for UltraHonkBackend (used in solidity verifier)
     keccak?: boolean
 ): Promise<SemaphoreNoirProof> {
     requireDefined(identity, "identity")

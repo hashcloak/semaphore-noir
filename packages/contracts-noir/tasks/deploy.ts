@@ -14,7 +14,7 @@ task("deploy", "Deploy a Semaphore contract")
     )
     .addOptionalParam<string>(
         "vkPt2",
-        "Verification key points library address for depth >= 16",
+        "Verification key points library address for depth > 16",
         undefined,
         types.string
     )
@@ -51,7 +51,7 @@ task("deploy", "Deploy a Semaphore contract")
                 honkVkPoint2 = await deploy(ethers, "SemaphoreVerifierKeyPts2", hardhatArguments.network)
 
                 if (logs) {
-                    console.info(`PoseidonT3 library has been deployed to: ${honkVkPoint2}`)
+                    console.info(`SemaphoreVerifierKeyPts2 library has been deployed to: ${honkVkPoint2}`)
                 }
             }
 
@@ -77,7 +77,7 @@ task("deploy", "Deploy a Semaphore contract")
 
             const semaphoreAddress = await deploy(
                 ethers,
-                "Semaphore",
+                "SemaphoreNoir",
                 hardhatArguments.network,
                 [semaphoreNoirVerifierAddress],
                 {
@@ -104,7 +104,7 @@ task("deploy", "Deploy a Semaphore contract")
                         startBlock
                     },
                     {
-                        name: "Semaphore",
+                        name: "SemaphoreNoir",
                         address: semaphoreAddress,
                         startBlock
                     }
@@ -113,7 +113,7 @@ task("deploy", "Deploy a Semaphore contract")
             )
 
             return {
-                semaphore: await ethers.getContractAt("Semaphore", semaphoreAddress),
+                semaphore: await ethers.getContractAt("SemaphoreNoir", semaphoreAddress),
                 verifierAddress: semaphoreNoirVerifierAddress,
                 poseidonAddress: poseidonT3Address
             }

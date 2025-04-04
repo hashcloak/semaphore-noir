@@ -2,8 +2,9 @@ import { SupportedNetwork, isSupportedNetwork } from "@semaphore-protocol/utils"
 import { readFileSync, writeFileSync } from "fs"
 import { FactoryOptions } from "hardhat/types"
 
+// TODO - add the libraries in contracts/base
 export type NetworkDeployedContracts = {
-    name: "Semaphore" | "SemaphoreNoirVerifier" | "PoseidonT3"
+    name: "SemaphoreNoir" | "SemaphoreNoirVerifier" | "PoseidonT3"
     address: string
     startBlock: number
 }[]

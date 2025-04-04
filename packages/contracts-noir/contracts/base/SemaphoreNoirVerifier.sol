@@ -1817,6 +1817,7 @@ contract SemaphoreNoirVerifier is BaseHonkVerifier {
     address private vkPts2Addr;
     address private honkVkAddr;
 
+    //TODO - refactor, prevent using delegatecall
     constructor(
         address _vkPts1Addr,
         address _vkPts2Addr,
@@ -1834,6 +1835,8 @@ contract SemaphoreNoirVerifier is BaseHonkVerifier {
             revert("MaxDepthInvariantViolated");
         }
     }
+
+    //TODO - refactor, prevent using delegatecall
     function loadVerificationKey(
         uint256 merkleTreeDepth
     ) internal override returns (Honk.VerificationKey memory honkVk) {

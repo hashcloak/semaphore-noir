@@ -6,13 +6,13 @@ import {IVerifier} from "./interfaces/ISemaphoreNoirVerifier.sol";
 import {SemaphoreGroups} from "./base/SemaphoreGroups.sol";
 import {MIN_DEPTH, MAX_DEPTH} from "./base/Constants.sol";
 
-/// @title Semaphore
+/// @title SemaphoreNoir
 /// @dev This contract uses the Semaphore base contracts to provide a complete service
 /// to allow admins to create and manage groups and their members to verify Semaphore proofs
 /// Group admins can add, update or remove group members, and can be an Ethereum account or a smart contract.
 /// This contract also assigns each new Merkle tree generated with a new root a duration (or an expiry)
 /// within which the proofs generated with that root can be validated.
-contract Semaphore is ISemaphore, SemaphoreGroups {
+contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
     IVerifier public verifier;
 
     /// @dev Gets a group id and returns the group parameters.
@@ -22,8 +22,8 @@ contract Semaphore is ISemaphore, SemaphoreGroups {
     /// This counter is used to keep track of the number of groups created.
     uint256 public groupCounter;
 
-    /// @dev Initializes the Semaphore verifier used to verify the user's ZK proofs.
-    /// @param _verifier: Semaphore verifier addresse.
+    /// @dev Initializes the Semaphore Noir verifier used to verify the user's ZK proofs.
+    /// @param _verifier: Semaphore Noir verifier addresse.
     constructor(IVerifier _verifier) {
         verifier = _verifier;
     }

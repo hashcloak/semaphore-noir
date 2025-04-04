@@ -26,8 +26,6 @@ interface ISemaphore {
         uint256 message;
         uint256 scope;
         bytes proofBytes;
-        // Todo - public input is calculated by the above
-        // bytes32[] _publicInputs
     }
 
     /// @dev Event emitted when the Merkle tree duration of a group is updated.

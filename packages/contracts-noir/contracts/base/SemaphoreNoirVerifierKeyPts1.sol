@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-// Part of this file was generated with [snarkJS](https://github.com/iden3/snarkjs).
+// Part of this file was generated with [Noir](https://github.com/noir-lang/noir).
 pragma solidity >=0.8.23 <=0.8.28;
 
 // Verification key points for merkle depth <= 16
 library SemaphoreVerifierKeyPts1 {
     error Semaphore__VKPtBytesMaxDepthInvariantViolated(uint256 actual, uint256 expected);
 
-    // Verification Key points.
-    // These values are taken from the verification key json file generated with snarkjs.
+    // Verification Key points for merkle depth <= 16.
+    // These values are taken from the verification key json file generated with Noir.
     // It allows to use the same verifier to verify proofs for all the tree depths supported by Semaphore.
     uint256 private constant SET_SIZE = 42;
     bytes private constant VK_POINT_BYTES =
