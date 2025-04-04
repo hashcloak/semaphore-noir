@@ -1,6 +1,7 @@
 import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
 import { poseidon2 } from "poseidon-lite"
+import { CompiledCircuit } from "@noir-lang/noir_js"
 import generateNoirProof from "../src/generate-proof-noir"
 import verifyNoirProof from "../src/verify-proof-noir"
 import hash from "../src/hash"
@@ -81,13 +82,20 @@ describe("Noir proof", () => {
             expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
         }, 80000)
 
-        it("Should throw an error because noirArtifactsPath is not a valid path", async () => {
+        it("Should throw an error because noirArtifactsPath is not a valid compiled circuit", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const noirArtifactsPath = "hellob#$n@ot"
-            const fun = () => generateNoirProof(identity, group, message, scope, undefined, noirArtifactsPath)
+            const dummyCircuit: CompiledCircuit = {
+                bytecode: "hellob#$n@ot",
+                abi: {
+                    parameters: [],
+                    return_type: null,
+                    error_types: {}
+                }
+            }
+            const fun = () => generateNoirProof(identity, group, message, scope, undefined, dummyCircuit)
 
-            await expect(fun).rejects.toThrow("no such file or directory")
+            await expect(fun).rejects.toThrow("Failed to load compiled Noir circuit")
         })
 
         it("Should throw an error because the message value is incorrect", async () => {
