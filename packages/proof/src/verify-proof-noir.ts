@@ -7,13 +7,16 @@ import {
     requireString
 } from "@zk-kit/utils/error-handlers"
 import { UltraHonkBackend } from "@aztec/bb.js"
-import os from "os"
-import fs from "fs"
+import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts-noir"
+import { CompiledCircuit } from "@noir-lang/noir_js"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
-import maybeGetNoirArtifacts from "./utils"
 
-export default async function verifyNoirProof(proof: SemaphoreNoirProof, noirArtifactsPath?: string): Promise<boolean> {
+export default async function verifyNoirProof(
+    proof: SemaphoreNoirProof,
+    noirCompiledCircuit?: CompiledCircuit,
+    threads?: number
+): Promise<boolean> {
     requireDefined(proof, "proof")
     requireObject(proof, "proof")
 
@@ -29,15 +32,19 @@ export default async function verifyNoirProof(proof: SemaphoreNoirProof, noirArt
     if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
         throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
     }
-    if (noirArtifactsPath) {
-        requireString(noirArtifactsPath, "snarkArtifacts")
-    }
-    // If the paths of Noir circuit json files are not defined they will be automatically downloaded.
-    // The circuit is defined by the merkleProof length
-    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleTreeDepth)
-    const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
 
-    const backend = new UltraHonkBackend(circuit.bytecode, { threads: os.cpus().length })
+    // If the Noir circuit has not been passed, it will be automatically downloaded.
+    // The circuit is defined by the merkleProof length
+    let backend: UltraHonkBackend
+    try {
+        const circuit = await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+
+        const nrThreads = threads ?? 1
+        backend = new UltraHonkBackend(circuit.bytecode, { threads: nrThreads })
+    } catch (err) {
+        throw new Error(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
+    }
+
     const proofData = {
         publicInputs: [proof.merkleTreeRoot, hash(proof.scope), hash(proof.message), proof.nullifier],
         proof: proof.proofBytes
