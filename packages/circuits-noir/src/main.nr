@@ -61,19 +61,21 @@ fn main(
     // Verifies membership by repeatedly hashing with the elements from the merkle proof
     // Depending on the index bit, we swap the siblings for hashing or not.
     // Finally, it is checked the resulting root equals the expected one.
-    // The index bits are bounded by 32, because the maximum Semaphore tree depth is 32.
-    let index_bits: [u1; 32] = indexes.to_le_bits();
+    // The index bits are bounded by the max depth of the tree. The maximum Semaphore tree depth is 32.
+    let index_bits: [u1; MAX_DEPTH] = indexes.to_le_bits();
     let mut node = identityCommitment;
     for i in 0..MAX_DEPTH {
         if i < merkleProofLength {
             let sibling = hashPath[i];
-            if index_bits[i] == 0 {
-                node = poseidon([node, sibling]);
+            let (left, right) = if index_bits[i] == 0 {
+                (node, sibling)
             } else {
-                node = poseidon([sibling, node]);
-            }
+                (sibling, node)
+            };
+            node = poseidon([left, right]);
         }
     }
+
     assert(node == merkleTreeRoot);
 
     // Part 3
