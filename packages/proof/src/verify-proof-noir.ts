@@ -7,7 +7,7 @@ import {
     requireString
 } from "@zk-kit/utils/error-handlers"
 import { UltraHonkBackend } from "@aztec/bb.js"
-import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts-noir"
+import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
 import { CompiledCircuit } from "@noir-lang/noir_js"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"

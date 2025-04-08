@@ -5,7 +5,7 @@ import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-
 import type { BigNumberish } from "ethers"
 import { UltraHonkBackend } from "@aztec/bb.js"
 import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
-import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts-noir"
+import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
 import { SemaphoreNoirProof } from "./types"
