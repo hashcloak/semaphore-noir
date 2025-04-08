@@ -1,16 +1,14 @@
 import type { Group, MerkleProof } from "@semaphore-protocol/group"
 import type { Identity } from "@semaphore-protocol/identity"
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
-import { requireDefined, requireNumber, requireObject, requireTypes, requireString } from "@zk-kit/utils/error-handlers"
+import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-kit/utils/error-handlers"
 import type { BigNumberish } from "ethers"
-import os from "os"
-import fs from "fs"
 import { UltraHonkBackend } from "@aztec/bb.js"
-import { Noir } from "@noir-lang/noir_js"
+import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
+import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts-noir"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
 import { SemaphoreNoirProof } from "./types"
-import maybeGetNoirArtifacts from "./utils"
 
 export default async function generateNoirProof(
     identity: Identity,
@@ -18,7 +16,8 @@ export default async function generateNoirProof(
     message: BigNumberish | Uint8Array | string,
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
-    noirArtifactsPath?: string,
+    noirCompiledCircuit?: CompiledCircuit,
+    threads?: number,
     // use keccak hash for UltraHonkBackend (used in solidity verifier)
     keccak?: boolean
 ): Promise<SemaphoreNoirProof> {
@@ -34,10 +33,6 @@ export default async function generateNoirProof(
 
     if (merkleTreeDepth) {
         requireNumber(merkleTreeDepth, "merkleTreeDepth")
-    }
-
-    if (noirArtifactsPath) {
-        requireString(noirArtifactsPath, "snarkArtifacts")
     }
 
     // Message and scope can be strings, numbers or buffers (i.e. Uint8Array).
@@ -65,10 +60,6 @@ export default async function generateNoirProof(
         merkleTreeDepth = merkleProofLength !== 0 ? merkleProofLength : 1
     }
 
-    // If the paths of Noir circuit json files are not defined they will be automatically downloaded.
-    noirArtifactsPath ??= await maybeGetNoirArtifacts(merkleTreeDepth)
-    const circuit = JSON.parse(fs.readFileSync(noirArtifactsPath, "utf-8"))
-
     // Prepare inputs for Noir program
     const secretKey = identity.secretScalar.toString() as `0x${string}`
     const merkleProofSiblings = Array.from({ length: merkleTreeDepth }, (_, i) => merkleProof.siblings[i] ?? 0n)
@@ -82,10 +73,19 @@ export default async function generateNoirProof(
     const hashedScope = hash(scope).toString() as `0x${string}`
     const hashedMessage = hash(message).toString() as `0x${string}`
 
-    // Initialize Noir with the compiled circuit
-    const noir = new Noir(circuit as any)
-    const backend = new UltraHonkBackend(circuit.bytecode, { threads: os.cpus().length })
+    let backend: UltraHonkBackend
+    let noir: Noir
+    try {
+        // If the Noir circuit has not been passed, it will be automatically downloaded.
+        noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
 
+        // Initialize Noir with the compiled circuit
+        noir = new Noir(noirCompiledCircuit)
+        const nrThreads = threads ?? 1
+        backend = new UltraHonkBackend(noirCompiledCircuit.bytecode, { threads: nrThreads })
+    } catch (err) {
+        throw new TypeError(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
+    }
     // Generate witness
     const { witness } = await noir.execute({
         secretKey,
