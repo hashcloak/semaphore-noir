@@ -87,152 +87,172 @@ fn main(
 
 #[test]
 fn pass_merkleproof_len1() {
-  let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
-  let indexes = 1;
-  let mut hashPath = [0; MAX_DEPTH];
-  hashPath[0] = 17197790661637433027297685226742709599380837544520340689137581733613433332983;
-  let merkleProofLength = 1;
-  let merkleTreeRoot = 14749601632619677010117355190090900871659822873947496064081607008658671249718;
-  let hashedScope = 32;
-  let messageInput = 43; 
-  
-  let nullifierOutput = main(
-    secretKey,
-    indexes,
-    hashPath,
-    merkleProofLength,
-    merkleTreeRoot,
-    hashedScope,
-    messageInput
-  );
+    let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
+    let indexes = 1;
+    let mut hashPath = [0; MAX_DEPTH];
+    hashPath[0] = 17197790661637433027297685226742709599380837544520340689137581733613433332983;
+    let merkleProofLength = 1;
+    let merkleTreeRoot =
+        14749601632619677010117355190090900871659822873947496064081607008658671249718;
+    let hashedScope = 32;
+    let messageInput = 43;
 
-  assert(nullifierOutput == 17372857233400574021114979593304691729475458770275659856062929947081629926774);
+    let nullifierOutput = main(
+        secretKey,
+        indexes,
+        hashPath,
+        merkleProofLength,
+        merkleTreeRoot,
+        hashedScope,
+        messageInput,
+    );
+
+    assert(
+        nullifierOutput
+            == 17372857233400574021114979593304691729475458770275659856062929947081629926774,
+    );
 }
 
 #[test]
 fn pass_merkleproof_len2() {
-  let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
-  let indexes = 3;
-  let mut hashPath = [0; MAX_DEPTH];
-  hashPath[0] = 222;
-  hashPath[1] = 5580148635681152038824579634153994374025422922042242905608547916566050510583;
-  let merkleProofLength = 2;
-  let merkleTreeRoot = 15463896243170667872144918581954291954064138644202866266871757140238856236252;
-  let hashedScope = 32;
-  let messageInput = 43; 
-  
-  let nullifierOutput = main(
-    secretKey,
-    indexes,
-    hashPath,
-    merkleProofLength,
-    merkleTreeRoot,
-    hashedScope,
-    messageInput
-  );
+    let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
+    let indexes = 3;
+    let mut hashPath = [0; MAX_DEPTH];
+    hashPath[0] = 222;
+    hashPath[1] = 5580148635681152038824579634153994374025422922042242905608547916566050510583;
+    let merkleProofLength = 2;
+    let merkleTreeRoot =
+        15463896243170667872144918581954291954064138644202866266871757140238856236252;
+    let hashedScope = 32;
+    let messageInput = 43;
 
-  assert(nullifierOutput == 17372857233400574021114979593304691729475458770275659856062929947081629926774);
+    let nullifierOutput = main(
+        secretKey,
+        indexes,
+        hashPath,
+        merkleProofLength,
+        merkleTreeRoot,
+        hashedScope,
+        messageInput,
+    );
+
+    assert(
+        nullifierOutput
+            == 17372857233400574021114979593304691729475458770275659856062929947081629926774,
+    );
 }
 
 #[test]
 fn pass_merkleproof_len10() {
-  let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
-  let indexes = 1023;
-  let mut hashPath = [0; MAX_DEPTH];
-  hashPath[0] = 1023;
-  hashPath[1] = 7703609393926148861806470850414101587282113463695008072842235608796379066550;
-  hashPath[2] = 11844355347052921836263554861941946966048634969958623466081587590542465759133;
-  hashPath[3] = 19139877065885635288462009770448247355705152266967089952432395406553642434273;
-  hashPath[4] = 15968895708437223385516840363948747630018846839139338811061474982723265688336;
-  hashPath[5] = 1157389113544196424312834359849712044068249869160475042631259223915679649526;
-  hashPath[6] = 9850169485007128596840836882853679679304108948486378818337816937810456934767;
-  hashPath[7] = 7328698264973484546168581905250553935177218888248684409634832044961836320061;
-  hashPath[8] = 3637363514134115024343666241307349483158812906758472113070175697206757306389;
-  hashPath[9] = 7516686158158401448998320090358910253731148596461412688165783659432576569650;
-  let merkleProofLength = 10;
-  let merkleTreeRoot = 2057311462964865392236711171061056405638996999335557516757935831793017666139;
-  let hashedScope = 32;
-  let messageInput = 43; 
-  
-  let nullifierOutput = main(
-    secretKey,
-    indexes,
-    hashPath,
-    merkleProofLength,
-    merkleTreeRoot,
-    hashedScope,
-    messageInput
-  );
+    let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
+    let indexes = 1023;
+    let mut hashPath = [0; MAX_DEPTH];
+    hashPath[0] = 1023;
+    hashPath[1] = 7703609393926148861806470850414101587282113463695008072842235608796379066550;
+    hashPath[2] = 11844355347052921836263554861941946966048634969958623466081587590542465759133;
+    hashPath[3] = 19139877065885635288462009770448247355705152266967089952432395406553642434273;
+    hashPath[4] = 15968895708437223385516840363948747630018846839139338811061474982723265688336;
+    hashPath[5] = 1157389113544196424312834359849712044068249869160475042631259223915679649526;
+    hashPath[6] = 9850169485007128596840836882853679679304108948486378818337816937810456934767;
+    hashPath[7] = 7328698264973484546168581905250553935177218888248684409634832044961836320061;
+    hashPath[8] = 3637363514134115024343666241307349483158812906758472113070175697206757306389;
+    hashPath[9] = 7516686158158401448998320090358910253731148596461412688165783659432576569650;
+    let merkleProofLength = 10;
+    let merkleTreeRoot =
+        2057311462964865392236711171061056405638996999335557516757935831793017666139;
+    let hashedScope = 32;
+    let messageInput = 43;
 
-  assert(nullifierOutput == 17372857233400574021114979593304691729475458770275659856062929947081629926774);
+    let nullifierOutput = main(
+        secretKey,
+        indexes,
+        hashPath,
+        merkleProofLength,
+        merkleTreeRoot,
+        hashedScope,
+        messageInput,
+    );
+
+    assert(
+        nullifierOutput
+            == 17372857233400574021114979593304691729475458770275659856062929947081629926774,
+    );
 }
 
 #[test(should_fail)]
 fn fail_secret_key_outofrange() {
-  let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373042;
-  let indexes = 1;
-  let mut hashPath = [0; MAX_DEPTH];
-  hashPath[0] = 17197790661637433027297685226742709599380837544520340689137581733613433332983;
-  let merkleProofLength = 1;
-  let merkleTreeRoot = 14749601632619677010117355190090900871659822873947496064081607008658671249718;
-  let hashedScope = 32;
-  let messageInput = 43; 
-  
-  let nullifierOutput = main(
-    secretKey,
-    indexes,
-    hashPath,
-    merkleProofLength,
-    merkleTreeRoot,
-    hashedScope,
-    messageInput
-  );
+    let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373042;
+    let indexes = 1;
+    let mut hashPath = [0; MAX_DEPTH];
+    hashPath[0] = 17197790661637433027297685226742709599380837544520340689137581733613433332983;
+    let merkleProofLength = 1;
+    let merkleTreeRoot =
+        14749601632619677010117355190090900871659822873947496064081607008658671249718;
+    let hashedScope = 32;
+    let messageInput = 43;
+
+    let nullifierOutput = main(
+        secretKey,
+        indexes,
+        hashPath,
+        merkleProofLength,
+        merkleTreeRoot,
+        hashedScope,
+        messageInput,
+    );
 }
 
 #[test(should_fail)]
 fn fail_invalid_merkleproof() {
-  let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
-  let indexes = 1;
-  let mut hashPath = [0; MAX_DEPTH];
-  hashPath[0] = 2;
-  let merkleProofLength = 1;
-  let merkleTreeRoot = 14749601632619677010117355190090900871659822873947496064081607008658671249718;
-  let hashedScope = 32;
-  let messageInput = 43; 
-  
-  let nullifierOutput = main(
-    secretKey,
-    indexes,
-    hashPath,
-    merkleProofLength,
-    merkleTreeRoot,
-    hashedScope,
-    messageInput
-  );
+    let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
+    let indexes = 1;
+    let mut hashPath = [0; MAX_DEPTH];
+    hashPath[0] = 2;
+    let merkleProofLength = 1;
+    let merkleTreeRoot =
+        14749601632619677010117355190090900871659822873947496064081607008658671249718;
+    let hashedScope = 32;
+    let messageInput = 43;
 
-  assert(nullifierOutput == 17372857233400574021114979593304691729475458770275659856062929947081629926774);
+    let nullifierOutput = main(
+        secretKey,
+        indexes,
+        hashPath,
+        merkleProofLength,
+        merkleTreeRoot,
+        hashedScope,
+        messageInput,
+    );
+
+    assert(
+        nullifierOutput
+            == 17372857233400574021114979593304691729475458770275659856062929947081629926774,
+    );
 }
 
 #[test(should_fail)]
 fn fail_other_merkleroot() {
-  let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
-  let indexes = 1;
-  let mut hashPath = [0; MAX_DEPTH];
-  hashPath[0] = 17197790661637433027297685226742709599380837544520340689137581733613433332983;
-  let merkleProofLength = 1;
-  let merkleTreeRoot = 2;
-  let hashedScope = 32;
-  let messageInput = 43; 
-  
-  let nullifierOutput = main(
-    secretKey,
-    indexes,
-    hashPath,
-    merkleProofLength,
-    merkleTreeRoot,
-    hashedScope,
-    messageInput
-  );
+    let secretKey = 2736030358979909402780800718157159386076813972158567259200215660948447373040;
+    let indexes = 1;
+    let mut hashPath = [0; MAX_DEPTH];
+    hashPath[0] = 17197790661637433027297685226742709599380837544520340689137581733613433332983;
+    let merkleProofLength = 1;
+    let merkleTreeRoot = 2;
+    let hashedScope = 32;
+    let messageInput = 43;
 
-  assert(nullifierOutput == 17372857233400574021114979593304691729475458770275659856062929947081629926774);
+    let nullifierOutput = main(
+        secretKey,
+        indexes,
+        hashPath,
+        merkleProofLength,
+        merkleTreeRoot,
+        hashedScope,
+        messageInput,
+    );
+
+    assert(
+        nullifierOutput
+            == 17372857233400574021114979593304691729475458770275659856062929947081629926774,
+    );
 }
