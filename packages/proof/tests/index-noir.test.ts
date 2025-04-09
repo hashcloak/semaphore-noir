@@ -70,7 +70,6 @@ describe("Noir proof", () => {
             expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
         }, 80000)
 
-        // TODO why doesn't this test pass?
         it("Should generate a Noir Semaphore proof without passing the tree depth", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
@@ -82,7 +81,7 @@ describe("Noir proof", () => {
             expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
         }, 80000)
 
-        it("Should throw an error because noirArtifactsPath is not a valid compiled circuit", async () => {
+        it("Should throw an error because compiledCircuit is not a valid compiled circuit", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
             const dummyCircuit: CompiledCircuit = {
@@ -105,6 +104,47 @@ describe("Noir proof", () => {
 
             await expect(fun).rejects.toThrow("overflow")
         })
+
+        it("Should generate a Noir Semaphore proof with keccak set to true", async () => {
+            const group = new Group([1n, 2n, identity.commitment])
+
+            const proof = await generateNoirProof(
+                identity,
+                group,
+                message,
+                scope,
+                merkleTreeDepth,
+                undefined,
+                undefined,
+                true
+            )
+            const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
+
+            expect(typeof proof).toBe("object")
+            expect(proof.merkleTreeRoot).toBe(group.root.toString())
+            expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
+        }, 80000)
+
+        it("Should generate a Noir Semaphore proof when passing undefined merkleTreeDepth, merkleProofLength being 1", async () => {
+            const group = new Group([1n, 2n, identity.commitment])
+
+            const proof = await generateNoirProof(identity, group, message, scope, undefined)
+            const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
+
+            expect(typeof proof).toBe("object")
+            expect(proof.merkleTreeRoot).toBe(group.root.toString())
+            expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
+        }, 80000)
+
+        it("Should generate a Noir Semaphore proof when passing undefined merkleTreeDepth, merkleProofLength being 0", async () => {
+            const group = new Group([identity.commitment])
+            const proof = await generateNoirProof(identity, group, message, scope, undefined)
+            const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
+
+            expect(typeof proof).toBe("object")
+            expect(proof.merkleTreeRoot).toBe(group.root.toString())
+            expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
+        }, 80000)
     })
 
     describe("# verifyNoirProof", () => {
@@ -148,5 +188,21 @@ describe("Noir proof", () => {
             const isValid = await verifyNoirProof(proof)
             expect(isValid).toBe(false)
         }, 80000)
+
+        it("Should throw an error because compiledCircuit is not a valid compiled circuit", async () => {
+            const dummyCircuit: CompiledCircuit = {
+                bytecode: "hellob#$n@ot",
+                abi: {
+                    parameters: [],
+                    return_type: null,
+                    error_types: {}
+                }
+            }
+            const group = new Group([1n, 2n, identity.commitment])
+            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
+            const fun = () => verifyNoirProof(proof, dummyCircuit)
+
+            await expect(fun).rejects.toThrow("Failed to load compiled Noir circuit")
+        })
     })
 })

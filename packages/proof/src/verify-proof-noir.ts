@@ -37,10 +37,10 @@ export default async function verifyNoirProof(
     // The circuit is defined by the merkleProof length
     let backend: UltraHonkBackend
     try {
-        const circuit = await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+        noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
 
         const nrThreads = threads ?? 1
-        backend = new UltraHonkBackend(circuit.bytecode, { threads: nrThreads })
+        backend = new UltraHonkBackend(noirCompiledCircuit.bytecode, { threads: nrThreads })
     } catch (err) {
         throw new Error(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
     }
