@@ -10,6 +10,33 @@ import hash from "./hash"
 import toBigInt from "./to-bigint"
 import { SemaphoreNoirProof } from "./types"
 
+/**
+ * This generates a Semaphore Noir proof; a zero-knowledge proof that an identity that
+ * is part of a group has shared an anonymous message.
+ *
+ * The message may be any arbitrary user-defined value (e.g. a vote), or the hash of that value.
+ * The scope is a value used like a topic on which users can generate a valid proof only once,
+ * for example the id of an election in which voters can only vote once.
+ * The hash of the identity's scope and secret scalar is called a nullifier and can be
+ * used to verify whether that identity has already generated a valid proof in that scope.
+ * The merkleTreeDepth of the tree determines which zero-knowledge artifacts to use to generate the proof.
+ * If it is not defined, the length of the Merkle proof is used to determine the circuit.
+ * Finally, the compiled Noir circuit can be passed directly, or the correct circuit will be fetched.
+ *
+ * Please keep in mind that groups with 1 member or 2 members cannot be considered anonymous.
+ *
+ * @param identity The Semaphore Identity
+ * @param groupOrMerkleProof The Semaphore group or the Merkle proof for the identity
+ * @param message The Semaphore message
+ * @param scope The Semaphore scope
+ * @param merkleTreeDepth The depth of the tree for which the circuit was compiled
+ * @param noirCompiledCircuit The precompiled Noir circuit
+ * @param threads The number of threads to run the UltraHonk backend worker on.
+ * For node this can be os.cpus().length, for browser it can be navigator.hardwareConcurrency
+ * @param keccak Use this option when you're using the Solidity verifier.
+ * By selecting this option, the challenges in the proof will be generated with the keccak hash function instead of poseidon.
+ * @returns The Semaphore Noir proof ready to be verified.
+ */
 export default async function generateNoirProof(
     identity: Identity,
     groupOrMerkleProof: Group | MerkleProof,
@@ -18,7 +45,6 @@ export default async function generateNoirProof(
     merkleTreeDepth?: number,
     noirCompiledCircuit?: CompiledCircuit,
     threads?: number,
-    // use keccak hash for UltraHonkBackend (used in solidity verifier)
     keccak?: boolean
 ): Promise<SemaphoreNoirProof> {
     requireDefined(identity, "identity")
@@ -51,6 +77,8 @@ export default async function generateNoirProof(
         merkleProof = groupOrMerkleProof.generateMerkleProof(leafIndex)
     }
 
+    // If the merkleTreeDepth is not passed, the length of the merkle proof is used.
+    // Note that this value can be smaller than the actual depth of the tree
     const merkleProofLength = merkleProof.siblings.length
     if (merkleTreeDepth !== undefined) {
         if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
@@ -97,13 +125,16 @@ export default async function generateNoirProof(
         hashedMessage
     })
 
-    // Generate proof
+    // Generate proof, for verification on-chain with keccak, with poseidon otherwise
+    // (This considers the hash that will be used in creating the proof, not the hash used within the circuit)
     let proofData
     if (keccak) {
         proofData = await backend.generateProof(witness, { keccak })
     } else {
         proofData = await backend.generateProof(witness)
     }
+    // The proofData.publicInputs consists of: [merkleTreeRoot, hashedScope, hashedMessage, nullifier]
+    // Return the data as a SemaphoreNoirProof
     return {
         merkleTreeDepth,
         merkleProofLength,

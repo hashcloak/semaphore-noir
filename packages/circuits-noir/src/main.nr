@@ -29,7 +29,7 @@ global L: Field = 27360303589799094027808007181571593860768139721585672592002156
 
 // There are 4 public values: the Merkle tree root, hashed scope, hashed message,
 // and the nullifier. Whether the scope and message are actually hashed doesn't
-// affect the circuit; the names just match how they're used in the Semaphore sdk.
+// affect the circuit; the names just match how they're used in the Semaphore SDK.
 //
 // The message is tied to the circuit by adding it as a (public) input to the circuit.
 fn main(
@@ -46,11 +46,11 @@ fn main(
     assert_lt(secretKey, L);
 
     // Identity generation.
-    // The public key is derived by multiplying the generator point with the secret key
+    // The public key is derived by multiplying the generator point with the secret key,
     // interpreted as a scalar.
     let generator: Curve<BabyJubJubParams> = Curve { x: BASE8[0], y: BASE8[1] };
     // ScalarField is parameterised by the number of 4-bit slices it contains.
-    // Since secret key is already know to be max 251 bits, there are 63 slices.
+    // Since secret key is already known to be max 251 bits, there are 63 slices.
     let secretScalar: ScalarField<63> = ScalarField::from(secretKey);
     let pubkey = generator.mul(secretScalar);
 
@@ -58,10 +58,10 @@ fn main(
     let identityCommitment = poseidon([pubkey.x, pubkey.y]);
 
     // Part 2
-    // Verifies membership by repeatedly hashing with the elements from the merkle proof
+    // Verifies membership by repeatedly hashing with the elements from the merkle proof.
     // Depending on the index bit, we swap the siblings for hashing or not.
     // Finally, it is checked the resulting root equals the expected one.
-    // The index bits are bounded by the max depth of the tree. The maximum Semaphore tree depth is 32.
+    // The index bits are bounded by the max depth of the tree.
     let index_bits: [u1; MAX_DEPTH] = indexes.to_le_bits();
     let mut node = identityCommitment;
     for i in 0..MAX_DEPTH {
@@ -191,7 +191,7 @@ fn fail_secret_key_outofrange() {
     let hashedScope = 32;
     let messageInput = 43;
 
-    let nullifierOutput = main(
+    let _ = main(
         secretKey,
         indexes,
         hashPath,
@@ -214,7 +214,7 @@ fn fail_invalid_merkleproof() {
     let hashedScope = 32;
     let messageInput = 43;
 
-    let nullifierOutput = main(
+    let _ = main(
         secretKey,
         indexes,
         hashPath,
@@ -222,11 +222,6 @@ fn fail_invalid_merkleproof() {
         merkleTreeRoot,
         hashedScope,
         messageInput,
-    );
-
-    assert(
-        nullifierOutput
-            == 17372857233400574021114979593304691729475458770275659856062929947081629926774,
     );
 }
 
@@ -241,7 +236,7 @@ fn fail_other_merkleroot() {
     let hashedScope = 32;
     let messageInput = 43;
 
-    let nullifierOutput = main(
+    let _ = main(
         secretKey,
         indexes,
         hashPath,
@@ -249,10 +244,5 @@ fn fail_other_merkleroot() {
         merkleTreeRoot,
         hashedScope,
         messageInput,
-    );
-
-    assert(
-        nullifierOutput
-            == 17372857233400574021114979593304691729475458770275659856062929947081629926774,
     );
 }

@@ -12,6 +12,18 @@ import { CompiledCircuit } from "@noir-lang/noir_js"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
 
+/**
+ * Verifies whether a Semahpore Noir proof is valid. Depending on the value of
+ * SemaphoreNoirProof.merkleTreeDepth, a different circuit is used.
+ * (In practice that value either equals the depth of the tree of the Identities group,
+ * or the length of the merkle proof used in the proof generation.)
+ *
+ * @param proof The Semaphore Noir proof
+ * @param noirCompiledCircuit The precompiled Noir circuit
+ * @param threads The number of threads to run the UltraHonk backend worker on.
+ * For node this can be os.cpus().length, for browser it can be navigator.hardwareConcurrency
+ * @returns
+ */
 export default async function verifyNoirProof(
     proof: SemaphoreNoirProof,
     noirCompiledCircuit?: CompiledCircuit,
@@ -34,7 +46,7 @@ export default async function verifyNoirProof(
     }
 
     // If the Noir circuit has not been passed, it will be automatically downloaded.
-    // The circuit is defined by the merkleProof length
+    // The circuit is defined by SemaphoreNoirProof.merkleTreeDepth
     let backend: UltraHonkBackend
     try {
         noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)

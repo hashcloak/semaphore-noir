@@ -40,4 +40,18 @@
     </h4>
 </div>
 
-To learn more about circuits visit [docs.semaphore.pse.dev](https://docs.semaphore.pse.dev/technical-reference/circuits).
+---
+
+_Note_: The Noir circuit is parameterized by `MAX_DEPTH`; replace its value in `src/main.nr` to create a circuit for a different max tree depth.
+
+## Compilation
+
+```
+nargo compile
+```
+
+## Run Noir tests
+
+```
+nargo test
+```
