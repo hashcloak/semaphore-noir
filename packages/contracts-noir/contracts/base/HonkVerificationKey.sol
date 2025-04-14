@@ -47,8 +47,8 @@ library HonkVerificationKey {
                 y: 0x1b6124ff294c0bbe277c398d606ca94bf37bad466915d4b7b1fcfd2ff798705d
             }),
             t3: G1Point({
-                x: 0x03c29facc62a18f92c829586f7c4229652a2ca44ecda61e0ec2d6ad75124118e,
-                y: 0x121efb2d3d20663f3c6282ead199b04a2acb274756d757ed64184ba336a452d3
+                x: 0x233834e0140e5ef7e22c8e9c71b60d1f9ad15ec60b1160db943c043c64e5635b,
+                y: 0x2a1e72915741ffdc0d9537378ca015e8943fd1ce6bb8eeb999eb04d9c51b1f4e
             }),
             t4: G1Point({
                 x: 0x2ae1cb509ce1e6f5a706388238a045046c7d1b3a1c534d8d1cd1165deb1b3a33,
@@ -69,16 +69,16 @@ library HonkVerificationKey {
 
     // returning circuit size N and logN based on merkle tree depth
     function getNAndLogN(uint256 merkleTreeDepth) internal pure returns (uint256, uint256) {
-        if (merkleTreeDepth < 6) {
+        if (merkleTreeDepth < 2) {
+            return (8192, 13);
+        }
+        if (merkleTreeDepth < 11) {
             return (16384, 14);
         }
-        if (merkleTreeDepth < 14) {
+        if (merkleTreeDepth < 28) {
             return (32768, 15);
         }
-        if (merkleTreeDepth < 32) {
-            return (65536, 16);
-        }
-        return (131072, 17);
+        return (65536, 16);
     }
 
     //TODO - duplicate struct, refactor
