@@ -571,7 +571,6 @@ describe("Semaphore", () => {
             )
             const transaction = semaphoreContract.validateProof(groupId, { ...proof, scope: 0 })
 
-            // TODO: the reason might change when not using delegate call
             await expect(transaction).to.be.revertedWithCustomError(SemaphoreNoirVerifier, "SumcheckFailed")
         })
 

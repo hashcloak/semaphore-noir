@@ -3,6 +3,7 @@
 
 import {MAX_DEPTH} from "./Constants.sol";
 import {IVerifier} from "../interfaces/ISemaphoreNoirVerifier.sol";
+import {HonkVerificationKey, G1Point, G1ProofPoint, VerificationKey} from "./HonkVerificationKey.sol";
 
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 4;
 
@@ -188,57 +189,6 @@ enum WIRE {
 }
 
 library Honk {
-    struct G1Point {
-        uint256 x;
-        uint256 y;
-    }
-
-    struct G1ProofPoint {
-        uint256 x_0;
-        uint256 x_1;
-        uint256 y_0;
-        uint256 y_1;
-    }
-
-    struct VerificationKey {
-        // Misc Params
-        uint256 circuitSize;
-        uint256 logCircuitSize;
-        uint256 publicInputsSize;
-        // Selectors
-        G1Point qm;
-        G1Point qc;
-        G1Point ql;
-        G1Point qr;
-        G1Point qo;
-        G1Point q4;
-        G1Point qLookup; // Lookup
-        G1Point qArith; // Arithmetic widget
-        G1Point qDeltaRange; // Delta Range sort
-        G1Point qAux; // Auxillary
-        G1Point qElliptic; // Auxillary
-        G1Point qPoseidon2External;
-        G1Point qPoseidon2Internal;
-        // Copy cnstraints
-        G1Point s1;
-        G1Point s2;
-        G1Point s3;
-        G1Point s4;
-        // Copy identity
-        G1Point id1;
-        G1Point id2;
-        G1Point id3;
-        G1Point id4;
-        // Precomputed lookup table
-        G1Point t1;
-        G1Point t2;
-        G1Point t3;
-        G1Point t4;
-        // Fixed first and last
-        G1Point lagrangeFirst;
-        G1Point lagrangeLast;
-    }
-
     struct RelationParameters {
         // challenges
         Fr eta;
@@ -252,24 +202,24 @@ library Honk {
 
     struct Proof {
         // Free wires
-        Honk.G1ProofPoint w1;
-        Honk.G1ProofPoint w2;
-        Honk.G1ProofPoint w3;
-        Honk.G1ProofPoint w4;
+        G1ProofPoint w1;
+        G1ProofPoint w2;
+        G1ProofPoint w3;
+        G1ProofPoint w4;
         // Lookup helpers - Permutations
-        Honk.G1ProofPoint zPerm;
+        G1ProofPoint zPerm;
         // Lookup helpers - logup
-        Honk.G1ProofPoint lookupReadCounts;
-        Honk.G1ProofPoint lookupReadTags;
-        Honk.G1ProofPoint lookupInverses;
+        G1ProofPoint lookupReadCounts;
+        G1ProofPoint lookupReadTags;
+        G1ProofPoint lookupInverses;
         // Sumcheck
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Shplemini
-        Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
+        G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
         Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
-        Honk.G1ProofPoint shplonkQ;
-        Honk.G1ProofPoint kzgQuotient;
+        G1ProofPoint shplonkQ;
+        G1ProofPoint kzgQuotient;
     }
 }
 
@@ -596,13 +546,13 @@ function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
 }
 
 // EC Point utilities
-function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
-    return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
+function convertProofPoint(G1ProofPoint memory input) pure returns (G1Point memory) {
+    return G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
 }
 
-function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1ProofPoint memory point) {
+function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (G1ProofPoint memory point) {
     require(proofSection.length == 0x80, "invalid bytes point");
-    point = Honk.G1ProofPoint({
+    point = G1ProofPoint({
         x_0: uint256(bytes32(proofSection[0x00:0x20])),
         x_1: uint256(bytes32(proofSection[0x20:0x40])),
         y_0: uint256(bytes32(proofSection[0x40:0x60])),
@@ -610,12 +560,12 @@ function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1P
     });
 }
 
-function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point memory) {
+function negateInplace(G1Point memory point) pure returns (G1Point memory) {
     point.y = (Q - point.y) % Q;
     return point;
 }
 
-function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool) {
+function pairing(G1Point memory rhs, G1Point memory lhs) view returns (bool) {
     bytes memory input = abi.encodePacked(
         rhs.x,
         rhs.y,
@@ -1428,7 +1378,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 440;
 
-    function loadVerificationKey(uint256 merkleTreeDepth) internal virtual returns (Honk.VerificationKey memory);
+    function loadVerificationKey(uint256 merkleTreeDepth) internal virtual returns (VerificationKey memory);
 
     function verify(
         bytes calldata proof,
@@ -1440,7 +1390,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             revert ProofLengthWrong();
         }
 
-        Honk.VerificationKey memory vk = loadVerificationKey(merkleTreeDepth);
+        VerificationKey memory vk = loadVerificationKey(merkleTreeDepth);
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
         if (publicInputs.length != vk.publicInputsSize) {
@@ -1602,7 +1552,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     function verifyShplemini(
         Honk.Proof memory proof,
-        Honk.VerificationKey memory vk,
+        VerificationKey memory vk,
         Transcript memory tp
     ) internal view returns (bool verified) {
         ShpleminiIntermediates memory mem; // stack
@@ -1614,7 +1564,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
+        G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -1733,25 +1683,25 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         // Finalise the batch opening claim
-        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
+        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = G1Point({x: 1, y: 2});
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
 
-        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
+        G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
 
-        Honk.G1Point memory P_0 = batchMul(commitments, scalars);
-        Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
+        G1Point memory P_0 = batchMul(commitments, scalars);
+        G1Point memory P_1 = negateInplace(quotient_commitment);
 
         return pairing(P_0, P_1);
     }
 
     // This implementation is the same as above with different constants
     function batchMul(
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
+        G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
-    ) internal view returns (Honk.G1Point memory result) {
+    ) internal view returns (G1Point memory result) {
         uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
         assembly {
             let success := 0x01
@@ -1794,47 +1744,13 @@ abstract contract BaseHonkVerifier is IVerifier {
 }
 
 contract SemaphoreNoirVerifier is BaseHonkVerifier {
-    address private vkPts1Addr;
-    address private vkPts2Addr;
-    address private honkVkAddr;
-
-    //TODO - refactor, prevent using delegatecall
-    constructor(
-        address _vkPts1Addr,
-        address _vkPts2Addr,
-        address _honkVkAddr
-    ) BaseHonkVerifier(NUMBER_OF_PUBLIC_INPUTS) {
-        vkPts1Addr = _vkPts1Addr;
-        vkPts2Addr = _vkPts2Addr;
-        honkVkAddr = _honkVkAddr;
-        (bool success, ) = vkPts1Addr.delegatecall(abi.encodeWithSignature("checkInvariant(uint8)", MAX_DEPTH));
-        if (!success) {
-            revert("MaxDepthInvariantViolated");
-        }
-        (success, ) = vkPts2Addr.delegatecall(abi.encodeWithSignature("checkInvariant(uint8)", MAX_DEPTH));
-        if (!success) {
-            revert("MaxDepthInvariantViolated");
-        }
+    constructor() BaseHonkVerifier(NUMBER_OF_PUBLIC_INPUTS) {
+        HonkVerificationKey.checkInvariant(MAX_DEPTH);
     }
 
-    //TODO - refactor, prevent using delegatecall
     function loadVerificationKey(
         uint256 merkleTreeDepth
-    ) internal override returns (Honk.VerificationKey memory honkVk) {
-        if (merkleTreeDepth < 17) {
-            (bool success, bytes memory _vkBytes) = honkVkAddr.delegatecall(
-                abi.encodeWithSignature("loadVerificationKey(uint256,address)", merkleTreeDepth, vkPts1Addr)
-            );
-            if (success) {
-                honkVk = abi.decode(_vkBytes, (Honk.VerificationKey));
-            }
-        } else {
-            (bool success, bytes memory _vkBytes) = honkVkAddr.delegatecall(
-                abi.encodeWithSignature("loadVerificationKey(uint256,address)", merkleTreeDepth, vkPts2Addr)
-            );
-            if (success) {
-                honkVk = abi.decode(_vkBytes, (Honk.VerificationKey));
-            }
-        }
+    ) internal pure override returns (VerificationKey memory honkVk) {
+        honkVk = HonkVerificationKey.loadVerificationKey(merkleTreeDepth);
     }
 }

@@ -33,13 +33,6 @@ task("deploy", "Deploy a Semaphore contract")
         ): Promise<any> => {
             const startBlock = await ethers.provider.getBlockNumber()
 
-            if (!honkVkAddress) {
-                honkVkAddress = await deploy(ethers, "HonkVerificationKey", hardhatArguments.network)
-
-                if (logs) {
-                    console.info(`HonkVerificationKey library has been deployed to: ${honkVkAddress}`)
-                }
-            }
             if (!honkVkPoint1) {
                 honkVkPoint1 = await deploy(ethers, "SemaphoreVerifierKeyPts1", hardhatArguments.network)
 
@@ -55,12 +48,31 @@ task("deploy", "Deploy a Semaphore contract")
                 }
             }
 
+            if (!honkVkAddress) {
+                honkVkAddress = await deploy(ethers, "HonkVerificationKey", hardhatArguments.network, undefined, {
+                    libraries: {
+                        SemaphoreVerifierKeyPts1: honkVkPoint1,
+                        SemaphoreVerifierKeyPts2: honkVkPoint2
+                    }
+                })
+
+                if (logs) {
+                    console.info(`HonkVerificationKey library has been deployed to: ${honkVkAddress}`)
+                }
+            }
+
             if (!semaphoreNoirVerifierAddress) {
-                semaphoreNoirVerifierAddress = await deploy(ethers, "SemaphoreNoirVerifier", hardhatArguments.network, [
-                    honkVkPoint1,
-                    honkVkPoint2,
-                    honkVkAddress
-                ])
+                semaphoreNoirVerifierAddress = await deploy(
+                    ethers,
+                    "SemaphoreNoirVerifier",
+                    hardhatArguments.network,
+                    undefined,
+                    {
+                        libraries: {
+                            HonkVerificationKey: honkVkAddress
+                        }
+                    }
+                )
 
                 if (logs) {
                     console.info(`SemaphoreNoirVerifier contract has been deployed to: ${semaphoreNoirVerifierAddress}`)
