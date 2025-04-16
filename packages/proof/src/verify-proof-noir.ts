@@ -58,7 +58,7 @@ export default async function verifyNoirProof(
     }
 
     const proofData = {
-        publicInputs: [proof.merkleTreeRoot, hash(proof.scope), hash(proof.message), proof.nullifier],
+        publicInputs: [hash(proof.scope), hash(proof.message), proof.merkleTreeRoot, proof.nullifier],
         proof: proof.proofBytes
     }
     return backend.verifyProof(proofData)

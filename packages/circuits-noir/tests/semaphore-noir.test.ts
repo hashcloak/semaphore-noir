@@ -20,6 +20,27 @@ const execAsync = promisify(exec)
 const CIRCUIT_PATH = path.resolve(__dirname, "../src/main.nr")
 const TARGET_PATH = path.resolve(__dirname, "../target/circuit.json")
 
+// This function comes from packages/circuits/tests, with the added return value of merkleProofLength
+function generateMerkleProof(group: Group, _index: number, maxDepth: number) {
+    const { siblings: merkleProofSiblings, index } = group.generateMerkleProof(_index)
+    const merkleProofLength = merkleProofSiblings.length
+    // The index must be converted to a list of indices, 1 for each tree level.
+    // The circuit tree depth is 20, so the number of siblings must be 20, even if
+    // the tree depth is actually 3. The missing siblings can be set to 0, as they
+    // won't be used to calculate the root in the circuit.
+    const merkleProofIndices: number[] = []
+
+    for (let i = 0; i < maxDepth; i += 1) {
+        merkleProofIndices.push((index >> i) & 1)
+
+        if (merkleProofSiblings[i] === undefined) {
+            merkleProofSiblings[i] = BigInt(0)
+        }
+    }
+
+    return { merkleProofSiblings, merkleProofIndices, merkleProofLength }
+}
+
 async function replaceDepthInCircuit(newDepth: number) {
     const circuit = await fs.readFile(CIRCUIT_PATH, "utf-8")
     const modified = circuit.replace(/pub global MAX_DEPTH: u32 = \d+;/, `pub global MAX_DEPTH: u32 = ${newDepth};`)
@@ -45,29 +66,29 @@ function getCircuitInput(
     hashedMessage: number,
     MAX_DEPTH: number
 ) {
-    const { siblings: merkleProofSiblings, index } = group.generateMerkleProof(leafIndex)
-    // The merkleProofLength is the actual merkle proof length without padding of zeroes
-    const merkleProofLength = merkleProofSiblings.length.toString() as `0x${string}`
-    // HashPath is the merkle proof padded with zeroes until MAX_DEPTH length
+    const { merkleProofSiblings, merkleProofIndices, merkleProofLength } = generateMerkleProof(
+        group,
+        leafIndex,
+        MAX_DEPTH
+    )
+
+    // hashPath is the merkle proof padded with zeroes until MAX_DEPTH length
+    // indexIndices indicates the input order for hashing, also padded with zeroes until MAX_DEPTH
     const hashPath = merkleProofSiblings.map((s: { toString: () => string }) => s.toString() as `0x${string}`)
-    while (hashPath.length < MAX_DEPTH) {
-        hashPath.push("0x00")
-    }
+    const indexIndices = merkleProofIndices.map((s: { toString: () => string }) => s.toString() as `0x${string}`)
 
     const secretInput = secret.toString() as `0x${string}`
-    const indexes = index.toString() as `0x${string}`
-    const merkleTreeRoot = group.root.toString() as `0x${string}`
+    const merkleProofLengthInput = merkleProofLength.toString() as `0x${string}`
     const scopeInput = hashedScope.toString() as `0x${string}`
     const messageInput = hashedMessage.toString() as `0x${string}`
 
     return {
-        secretKey: secretInput,
-        indexes,
-        hashPath,
-        merkleProofLength,
-        merkleTreeRoot,
-        hashedScope: scopeInput,
-        hashedMessage: messageInput
+        secret_key: secretInput,
+        index_bits: indexIndices,
+        hash_path: hashPath,
+        merkle_proof_length: merkleProofLengthInput,
+        hashed_scope: scopeInput,
+        hashed_message: messageInput
     }
 }
 
@@ -83,13 +104,12 @@ async function getCompiledNoirProgram(MAX_DEPTH: number) {
 async function verifyForInputs(
     noir: Noir,
     inputs: {
-        secretKey: `0x${string}`
-        indexes: `0x${string}`
-        hashPath: `0x${string}`[]
-        merkleProofLength: `0x${string}`
-        merkleTreeRoot: `0x${string}`
-        hashedScope: `0x${string}`
-        hashedMessage: `0x${string}`
+        secret_key: `0x${string}`
+        index_bits: `0x${string}`[]
+        hash_path: `0x${string}`[]
+        merkle_proof_length: `0x${string}`
+        hashed_scope: `0x${string}`
+        hashed_message: `0x${string}`
     },
     program: any
 ) {
@@ -119,9 +139,9 @@ describe("Noir Semaphore circuit", () => {
         const nullifier = poseidon2([hashedScope, secret])
 
         expect(verified).toBe(true)
-        expect(BigInt(proof.publicInputs[0])).toEqual(group.root)
-        expect(BigInt(proof.publicInputs[1])).toEqual(BigInt(hashedScope))
-        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(hashedMessage))
+        expect(BigInt(proof.publicInputs[0])).toEqual(BigInt(hashedScope))
+        expect(BigInt(proof.publicInputs[1])).toEqual(BigInt(hashedMessage))
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(group.root))
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 
@@ -133,12 +153,12 @@ describe("Noir Semaphore circuit", () => {
         const group = new Group([2n, 3n, 4n, 123456n, 222n, commitment])
         const leafIndex = 5
         const inputs = getCircuitInput(leafIndex, group, secret, hashedScope, hashedMessage, MAX_DEPTH)
-
         const { noir, program } = await getCompiledNoirProgram(MAX_DEPTH)
         const { verified, proof } = await verifyForInputs(noir, inputs, program)
         const nullifier = poseidon2([hashedScope, secret])
 
         expect(verified).toBe(true)
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(group.root))
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 
@@ -158,6 +178,7 @@ describe("Noir Semaphore circuit", () => {
         const nullifier = poseidon2([hashedScope, secret])
 
         expect(verified).toBe(true)
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(group.root))
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 
@@ -177,6 +198,7 @@ describe("Noir Semaphore circuit", () => {
         const nullifier = poseidon2([hashedScope, secret])
 
         expect(verified).toBe(true)
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(group.root))
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 
@@ -219,9 +241,9 @@ describe("Noir Semaphore circuit", () => {
         const nullifier = poseidon2([hashedScope, secret])
 
         expect(verified).toBe(true)
-        expect(BigInt(proof.publicInputs[0])).toEqual(group.root)
-        expect(BigInt(proof.publicInputs[1])).toEqual(BigInt(hashedScope))
-        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(hashedMessage))
+        expect(BigInt(proof.publicInputs[0])).toEqual(BigInt(hashedScope))
+        expect(BigInt(proof.publicInputs[1])).toEqual(BigInt(hashedMessage))
+        expect(BigInt(proof.publicInputs[2])).toEqual(BigInt(group.root))
         expect(BigInt(proof.publicInputs[3])).toEqual(nullifier)
     }, 80000)
 })
