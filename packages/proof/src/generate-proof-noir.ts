@@ -3,12 +3,14 @@ import type { Identity } from "@semaphore-protocol/identity"
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
 import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-kit/utils/error-handlers"
 import type { BigNumberish } from "ethers"
-import { UltraHonkBackend } from "@aztec/bb.js"
 import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
 import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
+import { tmpdir } from "os"
+import path from "path"
+import { mkdtemp, writeFile } from "fs/promises"
+import { spawn } from "child_process"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
-import { SemaphoreNoirProof } from "./types"
 
 /**
  * This generates a Semaphore Noir proof; a zero-knowledge proof that an identity that
@@ -46,7 +48,9 @@ export default async function generateNoirProof(
     noirCompiledCircuit?: CompiledCircuit,
     threads?: number,
     keccak?: boolean
-): Promise<SemaphoreNoirProof> {
+): Promise<string> {
+    // console.time("generateNoirProof-e2e");
+
     requireDefined(identity, "identity")
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
     requireDefined(message, "message")
@@ -110,16 +114,19 @@ export default async function generateNoirProof(
     const hashedScope = hash(scope).toString() as `0x${string}`
     const hashedMessage = hash(message).toString() as `0x${string}`
 
-    let backend: UltraHonkBackend
+    let tempDir = path.join(tmpdir(), "compiled_circuit")
     let noir: Noir
     try {
         // If the Noir circuit has not been passed, it will be automatically downloaded.
         noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
 
+        // TODO we need a fs solution for browser (FileSystem web api?)
+        // store the compiledCircuit locally for bb
+        tempDir = await mkdtemp(tempDir)
+        await writeFile(path.join(tempDir, "circuit.json"), JSON.stringify(noirCompiledCircuit as any))
+
         // Initialize Noir with the compiled circuit
         noir = new Noir(noirCompiledCircuit)
-        const nrThreads = threads ?? 1
-        backend = new UltraHonkBackend(noirCompiledCircuit.bytecode, { threads: nrThreads })
     } catch (err) {
         throw new TypeError(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
     }
@@ -133,23 +140,73 @@ export default async function generateNoirProof(
         hashed_message: hashedMessage
     })
 
+    // store witness
+    await writeFile(path.join(tempDir, "witness.gz"), witness)
+
+    let args
+    if (keccak) {
+        args = [
+            "prove",
+            "--scheme",
+            "ultra_honk",
+            "-b",
+            path.join(tempDir, "circuit.json"),
+            "-w",
+            path.join(tempDir, "witness.gz"),
+            "-o",
+            path.normalize("./"),
+            "--oracle_hash",
+            "keccak"
+        ]
+    } else {
+        args = [
+            "prove",
+            "--scheme",
+            "ultra_honk",
+            "-b",
+            path.join(tempDir, "circuit.json"),
+            "-w",
+            path.join(tempDir, "witness.gz"),
+            "-o",
+            path.normalize("./")
+        ]
+    }
+
+    const bbProcess = spawn("bb", args)
+
+    bbProcess.stdout.on("data", (data) => {
+        console.log(`bb_prove: ${data}`)
+    })
+
+    bbProcess.stderr.on("data", (data) => {
+        console.log(`bb_prove: ${data}`)
+    })
+
+    bbProcess.on("error", (err) => {
+        throw new Error(`Failed to start process: ${err.message}`)
+    })
+
+    await new Promise((resolve, reject) => {
+        bbProcess.on("close", (code: number) => {
+            if (code === 0) {
+                resolve(0)
+            } else {
+                reject(new Error(`Process exited with code ${code}`))
+            }
+        })
+    })
+
     // Generate proof, for verification on-chain with keccak, with poseidon otherwise
     // (This considers the hash that will be used in creating the proof, not the hash used within the circuit)
-    let proofData
-    if (keccak) {
-        proofData = await backend.generateProof(witness, { keccak })
-    } else {
-        proofData = await backend.generateProof(witness)
-    }
+    // let proofData
+    // if (keccak) {
+    //     proofData = await backend.generateProof(witness, { keccak })
+    // } else {
+    //     proofData = await backend.generateProof(witness)
+    // }
     // The proofData.publicInputs consists of: [merkleTreeRoot, hashedScope, hashedMessage, nullifier]
     // Return the data as a SemaphoreNoirProof
-    return {
-        merkleTreeDepth,
-        merkleProofLength,
-        merkleTreeRoot: merkleProof.root.toString() as `0x${string}`,
-        nullifier: proofData.publicInputs[3].toString() as `0x${string}`,
-        message: message.toString() as `0x${string}`,
-        scope: scope.toString() as `0x${string}`,
-        proofBytes: proofData.proof
-    }
+    // console.timeEnd("generateNoirProof-e2e");
+
+    return path.normalize("./proof")
 }

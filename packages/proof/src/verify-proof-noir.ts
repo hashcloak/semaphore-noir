@@ -1,16 +1,10 @@
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
-import {
-    requireUint8Array,
-    requireDefined,
-    requireNumber,
-    requireObject,
-    requireString
-} from "@zk-kit/utils/error-handlers"
-import { UltraHonkBackend } from "@aztec/bb.js"
 import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
 import { CompiledCircuit } from "@noir-lang/noir_js"
-import { SemaphoreNoirProof } from "./types"
-import hash from "./hash"
+import { tmpdir } from "os"
+import path from "path"
+import { mkdtemp, writeFile } from "fs/promises"
+import { spawn } from "child_process"
 
 /**
  * Verifies whether a Semahpore Noir proof is valid. Depending on the value of
@@ -25,41 +19,98 @@ import hash from "./hash"
  * @returns
  */
 export default async function verifyNoirProof(
-    proof: SemaphoreNoirProof,
-    noirCompiledCircuit?: CompiledCircuit,
-    threads?: number
+    proofPath: string,
+    merkleTreeDepth: number,
+    noirCompiledCircuit?: CompiledCircuit
 ): Promise<boolean> {
-    requireDefined(proof, "proof")
-    requireObject(proof, "proof")
-
-    const { merkleTreeDepth, merkleTreeRoot, nullifier, message, scope, proofBytes } = proof
-
-    requireNumber(merkleTreeDepth, "proof.merkleTreeDepth")
-    requireString(merkleTreeRoot, "proof.merkleTreeRoot")
-    requireString(nullifier, "proof.nullifier")
-    requireString(message, "proof.message")
-    requireString(scope, "proof.scope")
-    requireUint8Array(proofBytes, "proof.proofBytes")
-
+    // console.time("verifyNoirProof-e2e");
     if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
         throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
     }
 
+    // console.time("verifyNoirProof-maybeGetCompiledNoirCircuit");
     // If the Noir circuit has not been passed, it will be automatically downloaded.
     // The circuit is defined by SemaphoreNoirProof.merkleTreeDepth
-    let backend: UltraHonkBackend
+    let tempDir = path.join(tmpdir(), "compiled_circuit")
     try {
         noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
 
-        const nrThreads = threads ?? 1
-        backend = new UltraHonkBackend(noirCompiledCircuit.bytecode, { threads: nrThreads })
+        // TODO we need a fs solution for browser (FileSystem web api?)
+        // store the compiledCircuit locally for bb
+        tempDir = await mkdtemp(tempDir)
+        await writeFile(path.join(tempDir, "circuit.json"), JSON.stringify(noirCompiledCircuit as any))
     } catch (err) {
         throw new Error(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
     }
+    // console.timeEnd("verifyNoirProof-maybeGetCompiledNoirCircuit");
 
-    const proofData = {
-        publicInputs: [hash(proof.scope), hash(proof.message), proof.merkleTreeRoot, proof.nullifier],
-        proof: proof.proofBytes
-    }
-    return backend.verifyProof(proofData)
+    // console.time("verifyNoirProof-write_vk");
+    const writeVkArgs = ["write_vk", "--scheme", "ultra_honk", "-b", path.join(tempDir, "circuit.json"), "-o", "./"]
+    const bbVkProcess = spawn("bb", writeVkArgs)
+
+    bbVkProcess.stdout.on("data", (data) => {
+        console.log(`bb_vk: ${data}`)
+    })
+
+    bbVkProcess.stderr.on("data", (data) => {
+        console.log(`bb_vk: ${data}`)
+    })
+
+    bbVkProcess.on("error", (err) => {
+        throw new Error(`Failed to start process: ${err.message}`)
+    })
+
+    await new Promise((resolve) => {
+        bbVkProcess.on("close", (code) => {
+            if (code === 0) {
+                console.log("proof generation succeed")
+                resolve(true)
+            } else {
+                throw new Error(`Failed to generate vk: ${code}`)
+            }
+        })
+    })
+    // console.timeEnd("verifyNoirProof-write_vk");
+
+    // console.time("verifyNoirProof-verify");
+    let result = false
+
+    const verifyArgs = ["verify", "--scheme", "ultra_honk", "-k", path.join("./", "vk"), "-p", proofPath]
+    const bbVerifyProcess = spawn("bb", verifyArgs)
+
+    bbVerifyProcess.stdout.on("data", (data) => {
+        console.log(`bb_verify ${data}`)
+    })
+
+    bbVerifyProcess.stderr.on("data", (data) => {
+        console.log(`bb_verify: ${data}`)
+    })
+
+    bbVerifyProcess.on("error", (err) => {
+        throw new Error(`Failed to start process: ${err.message}`)
+    })
+
+    result = await new Promise((resolve) => {
+        bbVerifyProcess.on("close", (code: number) => {
+            if (code === 0) {
+                resolve(true)
+            } else {
+                resolve(false)
+            }
+        })
+    })
+    // console.timeEnd("verifyNoirProof-verify");
+
+    // let a = bbVerifyProcess.on('close', (code) => {
+    //     if (code == 0) {
+    //         console.log('proof generation succeed')
+    //         result = true
+    //     } else {
+    //         console.log(`error: child process exited with code ${code}`);
+    //         result = false
+    //     }
+    // });
+
+    // console.timeEnd("verifyNoirProof-e2e");
+    return result
 }
