@@ -1,8 +1,12 @@
 import { packGroth16Proof, unpackGroth16Proof } from "@zk-kit/utils/proof-packing"
 import generateProof from "./generate-proof"
-import generateNoirProof from "./generate-proof-noir"
+import generateNoirProofNode, { generateNoirProofBrowser } from "./generate-proof-noir"
 import verifyProof from "./verify-proof"
-import verifyNoirProof from "./verify-proof-noir"
+import verifyNoirProofNode, { verifyNoirProofBrowser } from "./verify-proof-noir"
 
 export * from "./types"
-export { generateNoirProof, generateProof, packGroth16Proof, unpackGroth16Proof, verifyProof, verifyNoirProof }
+
+const isNode = typeof process !== "undefined" && !!process.versions?.node
+export const generateNoirProof = isNode ? generateNoirProofNode : generateNoirProofBrowser
+export const verifyNoirProof = isNode ? verifyNoirProofNode : verifyNoirProofBrowser
+export { generateProof, packGroth16Proof, unpackGroth16Proof, verifyProof }

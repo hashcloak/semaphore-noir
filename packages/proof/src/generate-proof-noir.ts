@@ -4,12 +4,14 @@ import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
 import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-kit/utils/error-handlers"
 import type { BigNumberish } from "ethers"
 import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
+import { UltraHonkBackend } from "@aztec/bb.js"
 import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
 import path from "path"
 import { writeFile, mkdir } from "fs/promises"
 import { spawn } from "child_process"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
+import { SemaphoreNoirProof } from "./types"
 
 /**
  * This generates a Semaphore Noir proof; a zero-knowledge proof that an identity that
@@ -199,4 +201,121 @@ export default async function generateNoirProof(
     })
 
     return path.join(tempDir, "proof")
+}
+
+export async function generateNoirProofBrowser(
+    identity: Identity,
+    groupOrMerkleProof: Group | MerkleProof,
+    message: BigNumberish | Uint8Array | string,
+    scope: BigNumberish | Uint8Array | string,
+    merkleTreeDepth?: number,
+    noirCompiledCircuit?: CompiledCircuit,
+    threads?: number,
+    keccak?: boolean
+): Promise<SemaphoreNoirProof> {
+    requireDefined(identity, "identity")
+    requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
+    requireDefined(message, "message")
+    requireDefined(scope, "scope")
+
+    requireObject(identity, "identity")
+    requireObject(groupOrMerkleProof, "groupOrMerkleProof")
+    requireTypes(message, "message", ["string", "bigint", "number", "Uint8Array"])
+    requireTypes(scope, "scope", ["string", "bigint", "number", "Uint8Array"])
+
+    if (merkleTreeDepth) {
+        requireNumber(merkleTreeDepth, "merkleTreeDepth")
+    }
+
+    // Message and scope can be strings, numbers or buffers (i.e. Uint8Array).
+    // They will be converted to bigints anyway.
+    message = toBigInt(message)
+    scope = toBigInt(scope)
+
+    let merkleProof
+
+    // The second parameter can be either a Merkle proof or a group.
+    // If it is a group the Merkle proof will be calculated here.
+    if ("siblings" in groupOrMerkleProof) {
+        merkleProof = groupOrMerkleProof
+    } else {
+        const leafIndex = groupOrMerkleProof.indexOf(identity.commitment)
+        merkleProof = groupOrMerkleProof.generateMerkleProof(leafIndex)
+    }
+
+    // If the merkleTreeDepth is not passed, the length of the merkle proof is used.
+    // Note that this value can be smaller than the actual depth of the tree
+    const merkleProofLength = merkleProof.siblings.length
+    if (merkleTreeDepth !== undefined) {
+        if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
+            throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
+        }
+    } else {
+        merkleTreeDepth = merkleProofLength !== 0 ? merkleProofLength : 1
+    }
+
+    // The index must be converted to a list of indices, 1 for each tree level.
+    // The missing siblings can be set to 0, as they won't be used in the circuit.
+    const merkleProofIndices = []
+    const merkleProofSiblings = merkleProof.siblings
+
+    for (let i = 0; i < merkleTreeDepth; i += 1) {
+        merkleProofIndices.push((merkleProof.index >> i) & 1)
+
+        if (merkleProofSiblings[i] === undefined) {
+            merkleProofSiblings[i] = 0n
+        }
+    }
+
+    // Prepare inputs for Noir program
+    const secretKey = identity.secretScalar.toString() as `0x${string}`
+    // Format to valid input for circuit
+    const hashPath = merkleProofSiblings.map((s) => s.toString() as `0x${string}`)
+
+    // Following the circom related implementation, pass hashes for scope and message
+    const hashedScope = hash(scope).toString() as `0x${string}`
+    const hashedMessage = hash(message).toString() as `0x${string}`
+
+    let backend: UltraHonkBackend
+    let noir: Noir
+    try {
+        // If the Noir circuit has not been passed, it will be automatically downloaded.
+        noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+
+        // Initialize Noir with the compiled circuit
+        noir = new Noir(noirCompiledCircuit)
+        const nrThreads = threads ?? 1
+        backend = new UltraHonkBackend(noirCompiledCircuit.bytecode, { threads: nrThreads })
+    } catch (err) {
+        throw new TypeError(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
+    }
+    // Generate witness
+    const { witness } = await noir.execute({
+        secret_key: secretKey,
+        index_bits: merkleProofIndices,
+        hash_path: hashPath,
+        merkle_proof_length: merkleProofLength,
+        hashed_scope: hashedScope,
+        hashed_message: hashedMessage
+    })
+
+    // Generate proof, for verification on-chain with keccak, with poseidon otherwise
+    // (This considers the hash that will be used in creating the proof, not the hash used within the circuit)
+    let proofData
+    if (keccak) {
+        proofData = await backend.generateProof(witness, { keccak })
+    } else {
+        proofData = await backend.generateProof(witness)
+    }
+    // The proofData.publicInputs consists of: [merkleTreeRoot, hashedScope, hashedMessage, nullifier]
+    // Return the data as a SemaphoreNoirProof
+    return {
+        merkleTreeDepth,
+        merkleProofLength,
+        merkleTreeRoot: merkleProof.root.toString() as `0x${string}`,
+        nullifier: proofData.publicInputs[3].toString() as `0x${string}`,
+        message: message.toString() as `0x${string}`,
+        scope: scope.toString() as `0x${string}`,
+        proofBytes: proofData.proof
+    }
 }
