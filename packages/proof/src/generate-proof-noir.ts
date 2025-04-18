@@ -5,9 +5,8 @@ import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-
 import type { BigNumberish } from "ethers"
 import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
 import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
-import { tmpdir } from "os"
 import path from "path"
-import { mkdtemp, writeFile } from "fs/promises"
+import { writeFile, mkdir } from "fs/promises"
 import { spawn } from "child_process"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
@@ -46,7 +45,6 @@ export default async function generateNoirProof(
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
     noirCompiledCircuit?: CompiledCircuit,
-    threads?: number,
     keccak?: boolean
 ): Promise<string> {
     // console.time("generateNoirProof-e2e");
@@ -114,22 +112,31 @@ export default async function generateNoirProof(
     const hashedScope = hash(scope).toString() as `0x${string}`
     const hashedMessage = hash(message).toString() as `0x${string}`
 
-    let tempDir = path.join(tmpdir(), "compiled_circuit")
+    // TODO change this to os.tmpdir()
+    const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
     let noir: Noir
     try {
+        // TODO consider making maybeGetCompiledNoirCircuit return the path instead of the object
         // If the Noir circuit has not been passed, it will be automatically downloaded.
         noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
 
         // TODO we need a fs solution for browser (FileSystem web api?)
         // store the compiledCircuit locally for bb
-        tempDir = await mkdtemp(tempDir)
-        await writeFile(path.join(tempDir, "circuit.json"), JSON.stringify(noirCompiledCircuit as any))
+
+        await mkdir(tempDir).catch((err) => {
+            if (err.code !== "EEXIST") throw err
+        })
+        await writeFile(
+            path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
+            JSON.stringify(noirCompiledCircuit as any)
+        )
 
         // Initialize Noir with the compiled circuit
         noir = new Noir(noirCompiledCircuit)
     } catch (err) {
         throw new TypeError(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
     }
+
     // Generate witness
     const { witness } = await noir.execute({
         secret_key: secretKey,
@@ -139,10 +146,10 @@ export default async function generateNoirProof(
         hashed_scope: hashedScope,
         hashed_message: hashedMessage
     })
-
     // store witness
     await writeFile(path.join(tempDir, "witness.gz"), witness)
 
+    // start bb_prove
     let args
     if (keccak) {
         args = [
@@ -150,11 +157,11 @@ export default async function generateNoirProof(
             "--scheme",
             "ultra_honk",
             "-b",
-            path.join(tempDir, "circuit.json"),
+            path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
             "-w",
             path.join(tempDir, "witness.gz"),
             "-o",
-            path.normalize("./"),
+            tempDir,
             "--oracle_hash",
             "keccak"
         ]
@@ -164,28 +171,23 @@ export default async function generateNoirProof(
             "--scheme",
             "ultra_honk",
             "-b",
-            path.join(tempDir, "circuit.json"),
+            path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
             "-w",
             path.join(tempDir, "witness.gz"),
             "-o",
-            path.normalize("./")
+            tempDir
         ]
     }
-
     const bbProcess = spawn("bb", args)
-
     bbProcess.stdout.on("data", (data) => {
         console.log(`bb_prove: ${data}`)
     })
-
     bbProcess.stderr.on("data", (data) => {
         console.log(`bb_prove: ${data}`)
     })
-
     bbProcess.on("error", (err) => {
         throw new Error(`Failed to start process: ${err.message}`)
     })
-
     await new Promise((resolve, reject) => {
         bbProcess.on("close", (code: number) => {
             if (code === 0) {
@@ -196,17 +198,5 @@ export default async function generateNoirProof(
         })
     })
 
-    // Generate proof, for verification on-chain with keccak, with poseidon otherwise
-    // (This considers the hash that will be used in creating the proof, not the hash used within the circuit)
-    // let proofData
-    // if (keccak) {
-    //     proofData = await backend.generateProof(witness, { keccak })
-    // } else {
-    //     proofData = await backend.generateProof(witness)
-    // }
-    // The proofData.publicInputs consists of: [merkleTreeRoot, hashedScope, hashedMessage, nullifier]
-    // Return the data as a SemaphoreNoirProof
-    // console.timeEnd("generateNoirProof-e2e");
-
-    return path.normalize("./proof")
+    return path.join(tempDir, "proof")
 }

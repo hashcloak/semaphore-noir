@@ -32,13 +32,13 @@ describe("Noir proof", () => {
         it("Should generate a Noir Semaphore proof for merkle proof length 1", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
+            const proofPath = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
             // const _ = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
             // expect(typeof proof).toBe("object")
             // expect(proof.merkleTreeRoot).toBe(group.root.toString())
             // expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
-            expect(proof).toBe("proof")
+            expect(proofPath).toContain("proof")
         }, 80000)
 
         // it("Should generate a Noir Semaphore proof for a group with 1 member (merkle proof of length 0)", async () => {
@@ -106,22 +106,13 @@ describe("Noir proof", () => {
         it("Should generate a Noir Semaphore proof with keccak set to true", async () => {
             const group = new Group([1n, 2n, identity.commitment])
 
-            const proofPath = await generateNoirProof(
-                identity,
-                group,
-                message,
-                scope,
-                merkleTreeDepth,
-                undefined,
-                undefined,
-                true
-            )
+            const proofPath = await generateNoirProof(identity, group, message, scope, merkleTreeDepth, undefined, true)
             // const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
 
             // expect(typeof proof).toBe("object")
             // expect(proof.merkleTreeRoot).toBe(group.root.toString())
             // expect(BigInt(proof.nullifier)).toBe(BigInt(nullifier))
-            expect(proofPath).toBe("proof")
+            expect(proofPath).toContain("proof")
         }, 80000)
 
         // it("Should generate a Noir Semaphore proof when passing undefined merkleTreeDepth, merkleProofLength being 1", async () => {

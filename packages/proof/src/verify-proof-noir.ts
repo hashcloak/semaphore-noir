@@ -1,9 +1,8 @@
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
 import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
 import { CompiledCircuit } from "@noir-lang/noir_js"
-import { tmpdir } from "os"
 import path from "path"
-import { mkdtemp, writeFile } from "fs/promises"
+import { mkdir, writeFile } from "fs/promises"
 import { spawn } from "child_process"
 
 /**
@@ -29,37 +28,49 @@ export default async function verifyNoirProof(
     }
 
     // console.time("verifyNoirProof-maybeGetCompiledNoirCircuit");
+    // TODO change this to os.tmpdir()
     // If the Noir circuit has not been passed, it will be automatically downloaded.
     // The circuit is defined by SemaphoreNoirProof.merkleTreeDepth
-    let tempDir = path.join(tmpdir(), "compiled_circuit")
+    const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
     try {
+        // TODO consider making maybeGetCompiledNoirCircuit return the path instead of the object
         noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
 
         // TODO we need a fs solution for browser (FileSystem web api?)
         // store the compiledCircuit locally for bb
-        tempDir = await mkdtemp(tempDir)
-        await writeFile(path.join(tempDir, "circuit.json"), JSON.stringify(noirCompiledCircuit as any))
+        await mkdir(tempDir).catch((err) => {
+            if (err.code !== "EEXIST") throw err
+        })
+        await writeFile(
+            path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
+            JSON.stringify(noirCompiledCircuit as any)
+        )
     } catch (err) {
         throw new Error(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
     }
     // console.timeEnd("verifyNoirProof-maybeGetCompiledNoirCircuit");
 
     // console.time("verifyNoirProof-write_vk");
-    const writeVkArgs = ["write_vk", "--scheme", "ultra_honk", "-b", path.join(tempDir, "circuit.json"), "-o", "./"]
+    // start bb write_vk
+    const writeVkArgs = [
+        "write_vk",
+        "--scheme",
+        "ultra_honk",
+        "-b",
+        path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
+        "-o",
+        tempDir
+    ]
     const bbVkProcess = spawn("bb", writeVkArgs)
-
     bbVkProcess.stdout.on("data", (data) => {
         console.log(`bb_vk: ${data}`)
     })
-
     bbVkProcess.stderr.on("data", (data) => {
         console.log(`bb_vk: ${data}`)
     })
-
     bbVkProcess.on("error", (err) => {
         throw new Error(`Failed to start process: ${err.message}`)
     })
-
     await new Promise((resolve) => {
         bbVkProcess.on("close", (code) => {
             if (code === 0) {
@@ -72,24 +83,20 @@ export default async function verifyNoirProof(
     })
     // console.timeEnd("verifyNoirProof-write_vk");
 
+    // start bb_verify
     // console.time("verifyNoirProof-verify");
     let result = false
-
-    const verifyArgs = ["verify", "--scheme", "ultra_honk", "-k", path.join("./", "vk"), "-p", proofPath]
+    const verifyArgs = ["verify", "--scheme", "ultra_honk", "-k", path.join(tempDir, "vk"), "-p", proofPath]
     const bbVerifyProcess = spawn("bb", verifyArgs)
-
     bbVerifyProcess.stdout.on("data", (data) => {
         console.log(`bb_verify ${data}`)
     })
-
     bbVerifyProcess.stderr.on("data", (data) => {
         console.log(`bb_verify: ${data}`)
     })
-
     bbVerifyProcess.on("error", (err) => {
         throw new Error(`Failed to start process: ${err.message}`)
     })
-
     result = await new Promise((resolve) => {
         bbVerifyProcess.on("close", (code: number) => {
             if (code === 0) {
@@ -100,16 +107,6 @@ export default async function verifyNoirProof(
         })
     })
     // console.timeEnd("verifyNoirProof-verify");
-
-    // let a = bbVerifyProcess.on('close', (code) => {
-    //     if (code == 0) {
-    //         console.log('proof generation succeed')
-    //         result = true
-    //     } else {
-    //         console.log(`error: child process exited with code ${code}`);
-    //         result = false
-    //     }
-    // });
 
     // console.timeEnd("verifyNoirProof-e2e");
     return result
