@@ -1,5 +1,5 @@
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
-import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
+import { maybeGetCompiledNoirCircuit, Project, maybeGetNoirVk } from "@zk-kit/artifacts"
 import {
     requireDefined,
     requireNumber,
@@ -9,8 +9,6 @@ import {
 } from "@zk-kit/utils/error-handlers"
 import { CompiledCircuit } from "@noir-lang/noir_js"
 import { UltraHonkBackend } from "@aztec/bb.js"
-import path from "path"
-import { mkdir, writeFile } from "fs/promises"
 import { spawn } from "child_process"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
@@ -30,7 +28,7 @@ import hash from "./hash"
 export default async function verifyNoirProof(
     proofPath: string,
     merkleTreeDepth: number,
-    noirCompiledCircuit?: CompiledCircuit
+    noirVkPath?: string
 ): Promise<boolean> {
     // console.time("verifyNoirProof-e2e");
     if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
@@ -38,65 +36,18 @@ export default async function verifyNoirProof(
     }
 
     // console.time("verifyNoirProof-maybeGetCompiledNoirCircuit");
-    // TODO change this to os.tmpdir()
-    // If the Noir circuit has not been passed, it will be automatically downloaded.
-    // The circuit is defined by SemaphoreNoirProof.merkleTreeDepth
-    const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
+    // If the Noir VK has not been passed, it will be automatically downloaded.
     try {
-        // TODO consider making maybeGetCompiledNoirCircuit return the path instead of the object
-        noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
-
-        // TODO we need a fs solution for browser (FileSystem web api?)
-        // store the compiledCircuit locally for bb
-        await mkdir(tempDir).catch((err) => {
-            if (err.code !== "EEXIST") throw err
-        })
-        await writeFile(
-            path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
-            JSON.stringify(noirCompiledCircuit as any)
-        )
+        noirVkPath ??= await maybeGetNoirVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
     } catch (err) {
-        throw new Error(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
+        throw new Error(`Failed to download VK: ${(err as Error).message}`)
     }
     // console.timeEnd("verifyNoirProof-maybeGetCompiledNoirCircuit");
-
-    // console.time("verifyNoirProof-write_vk");
-    // start bb write_vk
-    const writeVkArgs = [
-        "write_vk",
-        "--scheme",
-        "ultra_honk",
-        "-b",
-        path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
-        "-o",
-        tempDir
-    ]
-    const bbVkProcess = spawn("bb", writeVkArgs)
-    bbVkProcess.stdout.on("data", (data) => {
-        console.log(`bb_vk: ${data}`)
-    })
-    bbVkProcess.stderr.on("data", (data) => {
-        console.log(`bb_vk: ${data}`)
-    })
-    bbVkProcess.on("error", (err) => {
-        throw new Error(`Failed to start process: ${err.message}`)
-    })
-    await new Promise((resolve) => {
-        bbVkProcess.on("close", (code) => {
-            if (code === 0) {
-                console.log("proof generation succeed")
-                resolve(true)
-            } else {
-                throw new Error(`Failed to generate vk: ${code}`)
-            }
-        })
-    })
-    // console.timeEnd("verifyNoirProof-write_vk");
 
     // start bb_verify
     // console.time("verifyNoirProof-verify");
     let result = false
-    const verifyArgs = ["verify", "--scheme", "ultra_honk", "-k", path.join(tempDir, "vk"), "-p", proofPath]
+    const verifyArgs = ["verify", "--scheme", "ultra_honk", "-k", noirVkPath as string, "-p", proofPath]
     const bbVerifyProcess = spawn("bb", verifyArgs)
     bbVerifyProcess.stdout.on("data", (data) => {
         console.log(`bb_verify ${data}`)
