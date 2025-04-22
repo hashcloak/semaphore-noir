@@ -14,7 +14,7 @@ const banner = `/**
 */`
 
 export default {
-    input: "src/index.ts",
+    input: "src/index.node.ts",
     output: [
         {
             file: pkg.exports["."].node.require,

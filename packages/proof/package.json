@@ -5,10 +5,10 @@
     "type": "module",
     "license": "MIT",
     "main": "dist/index.browser.js",
-    "types": "dist/types/index.d.ts",
+    "types": "dist/types/index.browser.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/types/index.d.ts",
+            "types": "./dist/types/index.browser.d.ts",
             "node": {
                 "require": "./dist/index.node.cjs",
                 "default": "./dist/index.node.js"
