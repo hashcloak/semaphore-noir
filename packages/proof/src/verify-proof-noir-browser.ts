@@ -1,5 +1,5 @@
 import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
-import { maybeGetCompiledNoirCircuit, Project, maybeGetNoirVk } from "@zk-kit/artifacts"
+import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
 import {
     requireDefined,
     requireNumber,
@@ -9,7 +9,6 @@ import {
 } from "@zk-kit/utils/error-handlers"
 import { CompiledCircuit } from "@noir-lang/noir_js"
 import { UltraHonkBackend } from "@aztec/bb.js"
-import { spawn } from "child_process"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
 
@@ -23,57 +22,9 @@ import hash from "./hash"
  * @param noirCompiledCircuit The precompiled Noir circuit
  * @param threads The number of threads to run the UltraHonk backend worker on.
  * For node this can be os.cpus().length, for browser it can be navigator.hardwareConcurrency
- * @returns
+ * @returns True if the proof is valid, false otherwise.
  */
 export default async function verifyNoirProof(
-    proofPath: string,
-    merkleTreeDepth: number,
-    noirVkPath?: string
-): Promise<boolean> {
-    // console.time("verifyNoirProof-e2e");
-    if (merkleTreeDepth < MIN_DEPTH || merkleTreeDepth > MAX_DEPTH) {
-        throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
-    }
-
-    // console.time("verifyNoirProof-maybeGetCompiledNoirCircuit");
-    // If the Noir VK has not been passed, it will be automatically downloaded.
-    try {
-        noirVkPath ??= await maybeGetNoirVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
-    } catch (err) {
-        throw new Error(`Failed to download VK: ${(err as Error).message}`)
-    }
-    // console.timeEnd("verifyNoirProof-maybeGetCompiledNoirCircuit");
-
-    // start bb_verify
-    // console.time("verifyNoirProof-verify");
-    let result = false
-    const verifyArgs = ["verify", "--scheme", "ultra_honk", "-k", noirVkPath as string, "-p", proofPath]
-    const bbVerifyProcess = spawn("bb", verifyArgs)
-    bbVerifyProcess.stdout.on("data", (data) => {
-        console.log(`bb_verify ${data}`)
-    })
-    bbVerifyProcess.stderr.on("data", (data) => {
-        console.log(`bb_verify: ${data}`)
-    })
-    bbVerifyProcess.on("error", (err) => {
-        throw new Error(`Failed to start process: ${err.message}`)
-    })
-    result = await new Promise((resolve) => {
-        bbVerifyProcess.on("close", (code: number) => {
-            if (code === 0) {
-                resolve(true)
-            } else {
-                resolve(false)
-            }
-        })
-    })
-    // console.timeEnd("verifyNoirProof-verify");
-
-    // console.timeEnd("verifyNoirProof-e2e");
-    return result
-}
-
-export async function verifyNoirProofBrowser(
     proof: SemaphoreNoirProof,
     noirCompiledCircuit?: CompiledCircuit,
     threads?: number

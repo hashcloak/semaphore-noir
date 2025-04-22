@@ -1,8 +1,8 @@
 import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
 import { CompiledCircuit } from "@noir-lang/noir_js"
-import generateNoirProof from "../src/generate-proof-noir"
-import verifyNoirProof from "../src/verify-proof-noir"
+import generateNoirProof from "../src/generate-proof-noir-node"
+import verifyNoirProof from "../src/verify-proof-noir-node"
 
 describe("Noir proof", () => {
     const merkleTreeDepth = 10
