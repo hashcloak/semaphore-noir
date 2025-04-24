@@ -1,3 +1,4 @@
+use binary_merkle_root::binary_merkle_root;
 use ec::bjj::BabyJubJubParams;
 use ec::Curve;
 use ec::scalar_field::ScalarField;
@@ -59,27 +60,22 @@ fn main(
     let identity_commitment = poseidon([pubkey.x, pubkey.y]);
 
     // Part 2
-    // Verifies membership by repeatedly hashing with the elements from the merkle proof.
+    // Calculates merkle root by repeatedly hashing with the elements from the merkle proof.
     // Depending on the index bit, we swap the siblings for hashing or not.
-    let mut node = identity_commitment;
-    for i in 0..MAX_DEPTH {
-        if i < merkle_proof_length {
-            let sibling = hash_path[i];
-            let (left, right) = if index_bits[i] == 0 {
-                (node, sibling)
-            } else {
-                (sibling, node)
-            };
-            node = poseidon([left, right]);
-        }
-    }
+    let root = binary_merkle_root(
+        poseidon,
+        identity_commitment,
+        merkle_proof_length,
+        index_bits,
+        hash_path,
+    );
 
     // Part 3
     // Obtain the nullifier by hashing the hashed scope and secret key.
     let nullifier = poseidon([hashed_scope, secret_key]);
 
     // Return the calculated Merkle tree root & nullifier
-    (node, nullifier)
+    (root, nullifier)
 }
 
 #[test]
