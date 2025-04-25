@@ -1,0 +1,24 @@
+{
+    "name": "@semaphore-protocol/circuits-noir",
+    "version": "1.0.0",
+    "description": "Semaphore Noir circuits to generate zero-knowledge proofs.",
+    "license": "MIT",
+    "files": [
+        "src/",
+        "!main",
+        "!test",
+        "LICENSE",
+        "README.md"
+    ],
+    "repository": "https://github.com/semaphore-protocol/semaphore",
+    "homepage": "https://github.com/semaphore-protocol/semaphore/tree/main/packages/data",
+    "bugs": {
+        "url": "https://github.com/semaphore-protocol/semaphore.git/issues"
+    },
+    "dependencies": {
+        "@aztec/bb.js": "0.82.2",
+        "@noir-lang/noir_js": "1.0.0-beta.3",
+        "@noir-lang/noir_wasm": "1.0.0-beta.3",
+        "@zk-kit/baby-jubjub": "1.0.3"
+    }
+}

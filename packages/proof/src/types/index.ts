@@ -9,3 +9,13 @@ export type SemaphoreProof = {
     scope: NumericString
     points: PackedGroth16Proof
 }
+
+export type SemaphoreNoirProof = {
+    merkleTreeDepth: number
+    merkleProofLength: number
+    merkleTreeRoot: string
+    message: string
+    nullifier: string
+    scope: string
+    proofBytes: Uint8Array
+}
