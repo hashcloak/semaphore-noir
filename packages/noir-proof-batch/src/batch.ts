@@ -36,7 +36,7 @@ export function deflattenFields(flattenedFields: Uint8Array): string[] {
     return chunkedFlattenedPublicInputs.map(uint8ArrayToHex)
 }
 
-function runBB(argsArray: any[]) {
+export function runBB(argsArray: any[]) {
     const result = spawnSync("bb", argsArray, { stdio: "inherit" })
     if (result.status !== 0) {
         throw new Error(`bb exited with code ${result.status}`)
