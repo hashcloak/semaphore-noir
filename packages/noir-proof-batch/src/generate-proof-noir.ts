@@ -9,7 +9,7 @@ import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import path from "path"
 import fs from "fs"
 import { writeFile, mkdir } from "fs/promises"
-import { spawn, spawnSync } from "child_process"
+import { spawn } from "child_process"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
 
@@ -45,18 +45,11 @@ function flattenUint8Arrays(arrays: Uint8Array[]): Uint8Array {
     return result
 }
 
-function flattenFieldsAsArray(fields: string[]): Uint8Array {
+export function flattenFieldsAsArray(fields: string[]): Uint8Array {
     const flattenedPublicInputs = fields.map(hexToUint8Array)
     return flattenUint8Arrays(flattenedPublicInputs)
 }
 
-function runBB(argsArray: any[]) {
-    console.log(`Running: bb ${argsArray.join(" ")}`)
-    const result = spawnSync("bb", argsArray, { stdio: "inherit" })
-    if (result.status !== 0) {
-        throw new Error(`bb exited with code ${result.status}`)
-    }
-}
 /**
  * This generates a Semaphore Noir proof; a zero-knowledge proof that an identity that
  * is part of a group has shared an anonymous message.
@@ -224,25 +217,6 @@ export default async function generateNoirProof(
             }
         })
     })
-
-    runBB([
-        "write_vk",
-        "-v",
-        "-s",
-        "ultra_honk",
-        "-b",
-        path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
-        "-o",
-        tempDir,
-        "--output_format",
-        "bytes_and_fields",
-        "--honk_recursion",
-        "1",
-        "--init_kzg_accumulator"
-    ])
-
-    // Uncomment for testing
-    // runBB(["verify", "-k", `${tempDir}/vk`, "-p", `${tempDir}/${timestamp}/proof`])
 
     // Read out the proof data and return
     // In the Semaphore circuit we have 4 public inputs
