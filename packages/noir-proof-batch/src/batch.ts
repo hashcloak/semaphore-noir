@@ -7,6 +7,11 @@ import { writeFile, mkdir } from "fs/promises"
 import { NoirBatchProof } from "./types"
 import hash from "./hash"
 
+type InternalProof = {
+    proof: NoirBatchProof
+    isLayer1: boolean
+}
+
 // deflattenFields and uint8ArrayToHex come from barretenberg
 const uint8ArrayToHex = (buffer: Uint8Array): string => {
     const hex: string[] = []
@@ -51,6 +56,7 @@ export default async function batchSemaphoreNoirProofs(
     batchLeavesCircuit: CompiledCircuit,
     batchNodesCircuit: CompiledCircuit
 ): Promise<NoirBatchProof> {
+    // TODO assert proofs.length > 1
     const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
     let batchLeavesNoir: Noir
     let batchNodesNoir: Noir
@@ -71,15 +77,21 @@ export default async function batchSemaphoreNoirProofs(
 
     const vkHash = `0x${"0".repeat(64)}`
 
-    // To start: Assume N is a power of 2.
     // STEP 1: Generate the first layer of proofs, combining Semaphore proofs per pair
-    const leafLayerProofs: NoirBatchProof[] = []
+    const leafLayerProofs: InternalProof[] = []
     const recursion = path.join(tempDir, "recursion")
     mkdirSync(recursion, { recursive: true })
 
-    for (let i = 0; i < proofs.length; i += 2) {
-        const proof0 = proofs[i]
-        const proof1 = proofs[i + 1]
+    const leafProofs = [...proofs]
+
+    if (leafProofs.length % 2 === 1) {
+        const lastProof = leafProofs[leafProofs.length - 1]
+        leafProofs.push(lastProof)
+    }
+
+    for (let i = 0; i < leafProofs.length; i += 2) {
+        const proof0 = leafProofs[i]
+        const proof1 = leafProofs[i + 1]
 
         const proofAsFields0 = deflattenFields(proof0.proofBytes)
         const publicInputs0 = [
@@ -130,13 +142,148 @@ export default async function batchSemaphoreNoirProofs(
         const proofFields = JSON.parse(readFileSync(`${recursion}/proof_fields.json`, "utf-8"))
 
         leafLayerProofs.push({
-            publicInputs: [],
-            proofBytes: proofFields
+            proof: {
+                publicInputs: [],
+                proofBytes: proofFields
+            },
+            isLayer1: true
         })
     }
 
-    // recursionCircuitVk is fixed
-    const recursionCircuitVk = [
+    // vk for batching 2 leaves circuit
+    const batch2LeavesCircuitVk = [
+        "0x0000000000000000000000000000000000000000000000000000000000200000",
+        "0x0000000000000000000000000000000000000000000000000000000000000010",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000000000000000000000000000005",
+        "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "0x0000000000000000000000000000000000000000000000000000000000000009",
+        "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "0x000000000000000000000000000000000000000000000000000000000000000b",
+        "0x000000000000000000000000000000000000000000000000000000000000000c",
+        "0x000000000000000000000000000000000000000000000000000000000000000d",
+        "0x000000000000000000000000000000000000000000000000000000000000000e",
+        "0x000000000000000000000000000000000000000000000000000000000000000f",
+        "0x00000000000000000000000000000025d90d90d95607ee29179ae5c722ae0c8f",
+        "0x00000000000000000000000000000000000d9c6041d10416fed659315d27aee2",
+        "0x00000000000000000000000000000049a1673d9c80d3059520ad6f977e2c9bc5",
+        "0x00000000000000000000000000000000002dd52f3dea230276bc3edef3130d91",
+        "0x0000000000000000000000000000004e6a79cdc860550bc4e497bd0681041c18",
+        "0x0000000000000000000000000000000000047c2c64988e4e9f80c223517fc8d7",
+        "0x000000000000000000000000000000d90f731c058187f4daff5768c89ebf0ea0",
+        "0x00000000000000000000000000000000002a2986112eb9cb946252c2d3d5b71c",
+        "0x00000000000000000000000000000000e48d95071907f820a1b305ec17e84b37",
+        "0x000000000000000000000000000000000009f3a1cc177d9ee735ffe1bc9b6d74",
+        "0x00000000000000000000000000000061b35ccf60653e98c1c2c2df971002f98c",
+        "0x0000000000000000000000000000000000149a3b203a2ad1333e3472e592ba03",
+        "0x000000000000000000000000000000e50ec01bc6364d0200e909b211ecc131b4",
+        "0x00000000000000000000000000000000002bfbe9e9264f79c7302943970efba8",
+        "0x0000000000000000000000000000003d00176c87547ab6e16df4408a38955e42",
+        "0x000000000000000000000000000000000029708adc33ff55955b4c667c828e0a",
+        "0x000000000000000000000000000000d409ae42b51b3f255eb9dbb0bc60be7f12",
+        "0x00000000000000000000000000000000002fc601b1726373e455a3032ad7d705",
+        "0x000000000000000000000000000000baa7a2b8902f14448b08c2cdf1048fdbd7",
+        "0x00000000000000000000000000000000000a1ebe57220868ebba8e33d49c01e4",
+        "0x000000000000000000000000000000b51c323bd9513bdc02302ee79f34b2537e",
+        "0x0000000000000000000000000000000000120653d53577b54a2562fd49f34c6b",
+        "0x0000000000000000000000000000000ebcda0a505c27be3d0f8184608d051038",
+        "0x000000000000000000000000000000000002b014e691431ff73bd89bdd653531",
+        "0x000000000000000000000000000000ece661d9ddf8d6ce71e63ee377b120f70f",
+        "0x000000000000000000000000000000000017c6d9d50e48678a2ac344538de4c7",
+        "0x000000000000000000000000000000ad54bcdd8f21bebc775e9dfb36b9a73d45",
+        "0x000000000000000000000000000000000019c51b736e4c5a7d8380246160d19a",
+        "0x000000000000000000000000000000899c524eb8f3dbf98513c080690e50912c",
+        "0x000000000000000000000000000000000011bbffbe11c18b7cf3b93f70b7b468",
+        "0x000000000000000000000000000000fc6b7f3254e2440315f20cdec9c3b99bdb",
+        "0x0000000000000000000000000000000000204776e1e90171068f2c6c0d1fbb90",
+        "0x000000000000000000000000000000c2ca9daf2371f1a4f487b80dcb46c31216",
+        "0x000000000000000000000000000000000020c82983472aff106a884ee18de4fe",
+        "0x000000000000000000000000000000851b1c22bcc040095fc1ba4a5dd7e6ab1e",
+        "0x0000000000000000000000000000000000033b339f8aff3dd85ab91fdd116bce",
+        "0x0000000000000000000000000000004e1d633aed64174e18424c9d229cafb00b",
+        "0x0000000000000000000000000000000000228bd9a70d6c95555bb52b1ceb4e33",
+        "0x000000000000000000000000000000b180a0949218e63f7229209d8f82cd7db6",
+        "0x00000000000000000000000000000000002338ab6892811bb85b99d4655f2e56",
+        "0x000000000000000000000000000000dc0963b49e7afcbbfb2a822346b5d122bc",
+        "0x000000000000000000000000000000000005ee52fe5faf71df5c4f2c682ab4b8",
+        "0x000000000000000000000000000000f3388d608bb2384d0a21bd1dae125e949c",
+        "0x00000000000000000000000000000000002316296eec45d16306b02ab2b239c5",
+        "0x0000000000000000000000000000007e45e57e96b09269a8009ebec3243e7b2d",
+        "0x00000000000000000000000000000000002588d486346c14ac23bcb23458ed83",
+        "0x0000000000000000000000000000000fd712e9431ed9219342a3735c1be2ff36",
+        "0x00000000000000000000000000000000001d581d403a123b54af4b16d47c6d0a",
+        "0x00000000000000000000000000000011355ffe679b0eab1edb3d75deae5ce8ae",
+        "0x000000000000000000000000000000000019e5d8c0c7f50ffb971c7a561d6402",
+        "0x0000000000000000000000000000006d838e0a96bc15212dea031b642721ba25",
+        "0x000000000000000000000000000000000026bedae660132627a30fd4a5d7b024",
+        "0x000000000000000000000000000000a707b6f71cb5e947d1fd3a50b9aa917974",
+        "0x000000000000000000000000000000000008fed61b7bb8e67d08ec8cdb282c3f",
+        "0x000000000000000000000000000000491c59408057bcfa3ee1dead9ddc185ec3",
+        "0x0000000000000000000000000000000000276dc18b846e1896387e6ea1a21d98",
+        "0x0000000000000000000000000000006429622380d15c65862c904d54c1575ca7",
+        "0x000000000000000000000000000000000015fedf772114d5a5a068bb85119cbe",
+        "0x000000000000000000000000000000ad7d3460547249f491090141c25e762d7c",
+        "0x0000000000000000000000000000000000117ebf85e995a61480a3c56f3798df",
+        "0x000000000000000000000000000000c239db1ca2314504bb24d32f0bf03da5d0",
+        "0x00000000000000000000000000000000001439bc2b1cf977bad90ae102932964",
+        "0x000000000000000000000000000000729ef23a7851e836264006f331d68d33e3",
+        "0x0000000000000000000000000000000000085e7b2a7598e031ab1eb621ee2d06",
+        "0x00000000000000000000000000000000599953cdec0f0cef565e2220af47f468",
+        "0x00000000000000000000000000000000000572288b2d16303af3ba1d6325c587",
+        "0x0000000000000000000000000000007e5832369c157fd9ad8eb236fe1329ea6c",
+        "0x0000000000000000000000000000000000048abbb777fd2644ee404ddad8b6be",
+        "0x000000000000000000000000000000d2a29dca40812643f3906e5cf40881b5bb",
+        "0x00000000000000000000000000000000000687428fa06ada305f5a769acec663",
+        "0x000000000000000000000000000000d3963254ef71a3ede9d50ff76aafe3e2fd",
+        "0x0000000000000000000000000000000000098274da1a1d257171004adf94be02",
+        "0x000000000000000000000000000000bb83625dea36a7b41fc81fa83c29cb6408",
+        "0x00000000000000000000000000000000000431a6cf7f40877bdfb2a28b66c2b6",
+        "0x0000000000000000000000000000002a52a082bf57795cbc5053d49e8dc24982",
+        "0x00000000000000000000000000000000001a125646963aa95ec4c54ec66c26e6",
+        "0x000000000000000000000000000000cbc5fb38232c26b94378c424fde735f2bd",
+        "0x00000000000000000000000000000000001fac614c9a0d82bdfa04393b2dfbd7",
+        "0x0000000000000000000000000000003e780c4b7541e005adb424d760aa618888",
+        "0x0000000000000000000000000000000000174ce5ef9cd5c6cc1ae881b600e9ff",
+        "0x00000000000000000000000000000062cf7b0a70b09ac6c78d1996442e445f94",
+        "0x00000000000000000000000000000000000987021c7b62ef76501a6829a5fc81",
+        "0x0000000000000000000000000000007c9cb4bde3f1db6aaff2bca01b440cfbbc",
+        "0x00000000000000000000000000000000000ff82e91bb8df91f4d89b7db75e1ef",
+        "0x000000000000000000000000000000243cf3e0cfba606d27d5999f4927ff92b3",
+        "0x00000000000000000000000000000000001f1156b93b4396e0dac3bd312fdc94",
+        "0x000000000000000000000000000000419d9961d76a65ed28914ca5cc3ffd2433",
+        "0x0000000000000000000000000000000000116a7935196d39ea9178a285c53a6b",
+        "0x000000000000000000000000000000f369409c76a0245d4f389193b554c30065",
+        "0x000000000000000000000000000000000023aebc5efc1d0e6d03030b242308fd",
+        "0x0000000000000000000000000000000cbfc1214af084c189478e34dc04c77419",
+        "0x000000000000000000000000000000000019f38f8e7cf18f375d75db06fca92a",
+        "0x0000000000000000000000000000000a771b5bbb501c75790a1a4e2906931045",
+        "0x000000000000000000000000000000000015642d62fc17d119ba4afb77ab424e",
+        "0x000000000000000000000000000000a5c1396036397af54a729801cc1c37d4e2",
+        "0x000000000000000000000000000000000021cea98314ec6efc5f8f1f648f42a7",
+        "0x000000000000000000000000000000dd5b4a42e59fe1e447cad24659049d13a7",
+        "0x00000000000000000000000000000000001f3bd0ebf0709ac30745d0dafb183c",
+        "0x00000000000000000000000000000016c2efd51d298fee5fce4355fc26890195",
+        "0x000000000000000000000000000000000005900180ddd1cec6e340c70c9bff6f",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000dcdc1cd46a781f41c20ef020a82cecfcf",
+        "0x00000000000000000000000000000000000037bf30f89056701d394772e180c3",
+        "0x00000000000000000000000000000018dbc2a9a804a5a763c7aec8584666c63e",
+        "0x000000000000000000000000000000000029958d9570523421e135078c07236a"
+    ]
+
+    // vk for batching 2 nodes circuit
+    const batch2NodesCircuitVk = [
         "0x0000000000000000000000000000000000000000000000000000000000200000",
         "0x0000000000000000000000000000000000000000000000000000000000000010",
         "0x0000000000000000000000000000000000000000000000000000000000000001",
@@ -266,53 +413,62 @@ export default async function batchSemaphoreNoirProofs(
         "0x000000000000000000000000000000f7151c97526c14e4531a6b1778adccedf5",
         "0x000000000000000000000000000000000016658259e029bb766fe0d828342f9e"
     ]
+
     // Now aggregate the proofs recursively. Starting with the leaf pairs
-    let currentLayerProofs: NoirBatchProof[] = leafLayerProofs
+    let currentLayerProofs: InternalProof[] = leafLayerProofs
 
     // Keep batching node layers until only 1 proof remains
-    // This assumes number of initial proofs is a power of 2
     let layer = 1
     while (currentLayerProofs.length > 1) {
-        const nextLayerProofs: NoirBatchProof[] = []
-
+        const nextLayerProofs: InternalProof[] = []
         for (let i = 0; i < currentLayerProofs.length; i += 2) {
             const proof0 = currentLayerProofs[i]
             const proof1 = currentLayerProofs[i + 1]
+            // If proof1 is undefined (odd number), carry proof0 to next layer unpaired
+            if (!proof1) {
+                nextLayerProofs.push(proof0)
+            } else {
+                const { witness } = await batchNodesNoir.execute({
+                    bp: [
+                        {
+                            verification_key: proof0.isLayer1 ? batch2LeavesCircuitVk : batch2NodesCircuitVk,
+                            proof: proof0.proof.proofBytes,
+                            key_hash: vkHash
+                        },
+                        {
+                            verification_key: proof1.isLayer1 ? batch2LeavesCircuitVk : batch2NodesCircuitVk,
+                            proof: proof1.proof.proofBytes,
+                            key_hash: vkHash
+                        }
+                    ]
+                })
+                await writeFile(`${recursion}/witness_nodes_${layer}_${i}.gz`, witness)
 
-            const { witness } = await batchNodesNoir.execute({
-                bp: [
-                    {
-                        verification_key: recursionCircuitVk,
-                        proof: proof0.proofBytes,
-                        key_hash: vkHash
+                // TODO if currentLayerProofs.length == 2 this is the root proof.
+                // if that is the case and keccak == true, we need additional flags:
+                //             "--oracle_hash", "keccak"
+                runBB([
+                    "prove",
+                    "--output_format",
+                    "bytes_and_fields",
+                    "-b",
+                    `${tempDir}/batch_2_nodes_circuit.json`,
+                    "-w",
+                    `${recursion}/witness_nodes_${layer}_${i}.gz`,
+                    "-o",
+                    recursion,
+                    "--recursive"
+                ])
+                const proofFields = JSON.parse(readFileSync(`${recursion}/proof_fields.json`, "utf-8"))
+
+                nextLayerProofs.push({
+                    proof: {
+                        publicInputs: [],
+                        proofBytes: proofFields
                     },
-                    {
-                        verification_key: recursionCircuitVk,
-                        proof: proof1.proofBytes,
-                        key_hash: vkHash
-                    }
-                ]
-            })
-            await writeFile(`${recursion}/witness_nodes_${layer}_${i}.gz`, witness)
-
-            runBB([
-                "prove",
-                "--output_format",
-                "bytes_and_fields",
-                "-b",
-                `${tempDir}/batch_2_nodes_circuit.json`,
-                "-w",
-                `${recursion}/witness_nodes_${layer}_${i}.gz`,
-                "-o",
-                recursion,
-                "--recursive"
-            ])
-            const proofFields = JSON.parse(readFileSync(`${recursion}/proof_fields.json`, "utf-8"))
-
-            nextLayerProofs.push({
-                publicInputs: [],
-                proofBytes: proofFields
-            })
+                    isLayer1: false
+                })
+            }
         }
 
         // Prepare next loop
@@ -322,6 +478,6 @@ export default async function batchSemaphoreNoirProofs(
 
     // Return the root proof
     // TODO separate the root proof from the other layers and add optional keccak flag to inputs
-    const rootBatchProof = currentLayerProofs[0]
+    const rootBatchProof = currentLayerProofs[0].proof
     return rootBatchProof
 }
