@@ -24,6 +24,12 @@ export type ProofDataForRecursion = {
     proof: string[]
 }
 
+/**
+ * This is a modified verson of UltraHonkBackend from @aztec/bb.js
+ * Most of the logic stays the same, except that numPublicInputs and vkBuf are added
+ * as parameters of generateProof() and verifyProof(). So the verification keys
+ * can be pre-calculated and reused.
+ */
 export class UltraHonkBackend {
     // These type assertions are used so that we don't
     // have to initialize `api` in the constructor.
@@ -89,44 +95,44 @@ export class UltraHonkBackend {
         return { proof, publicInputs }
     }
 
-    async generateProofForRecursiveAggregation(
-        compressedWitness: Uint8Array,
-        options?: UltraHonkBackendOptions
-    ): Promise<ProofDataForRecursion> {
-        await this.instantiate()
+    // async generateProofForRecursiveAggregation(
+    //     compressedWitness: Uint8Array,
+    //     options?: UltraHonkBackendOptions
+    // ): Promise<ProofDataForRecursion> {
+    //     await this.instantiate()
 
-        const proveUltraHonk = options?.keccak
-            ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-            : this.api.acirProveUltraHonk.bind(this.api)
+    //     const proveUltraHonk = options?.keccak
+    //         ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+    //         : this.api.acirProveUltraHonk.bind(this.api)
 
-        const proofWithPublicInputs = await proveUltraHonk(
-            this.acirUncompressedBytecode,
-            this.circuitOptions.recursive,
-            gunzip(compressedWitness)
-        )
-        // Write VK to get the number of public inputs
-        const writeVKUltraHonk = options?.keccak
-            ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
-            : this.api.acirWriteVkUltraHonk.bind(this.api)
+    //     const proofWithPublicInputs = await proveUltraHonk(
+    //         this.acirUncompressedBytecode,
+    //         this.circuitOptions.recursive,
+    //         gunzip(compressedWitness)
+    //     )
+    //     // Write VK to get the number of public inputs
+    //     const writeVKUltraHonk = options?.keccak
+    //         ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+    //         : this.api.acirWriteVkUltraHonk.bind(this.api)
 
-        const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
-        const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk))
+    //     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
+    //     const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk))
 
-        // some public inputs are handled specially
-        const numKZGAccumulatorFieldElements = 16
-        const publicInputsSizeIndex = 1 // index into VK for numPublicInputs
-        const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - numKZGAccumulatorFieldElements
+    //     // some public inputs are handled specially
+    //     const numKZGAccumulatorFieldElements = 16
+    //     const publicInputsSizeIndex = 1 // index into VK for numPublicInputs
+    //     const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - numKZGAccumulatorFieldElements
 
-        const { proof: proofBytes, publicInputs: publicInputsBytes } = splitHonkProof(
-            proofWithPublicInputs,
-            numPublicInputs
-        )
+    //     const { proof: proofBytes, publicInputs: publicInputsBytes } = splitHonkProof(
+    //         proofWithPublicInputs,
+    //         numPublicInputs
+    //     )
 
-        const publicInputs = deflattenFields(publicInputsBytes)
-        const proof = deflattenFields(proofBytes)
+    //     const publicInputs = deflattenFields(publicInputsBytes)
+    //     const proof = deflattenFields(proofBytes)
 
-        return { proof, publicInputs }
-    }
+    //     return { proof, publicInputs }
+    // }
 
     async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions, vkBuf?: Uint8Array): Promise<boolean> {
         await this.instantiate()
@@ -147,59 +153,59 @@ export class UltraHonkBackend {
         return await verifyUltraHonk(proof, new RawBuffer(vkBuf))
     }
 
-    async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
-        await this.instantiate()
-        return options?.keccak
-            ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
-            : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
-    }
+    // async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
+    //     await this.instantiate()
+    //     return options?.keccak
+    //         ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
+    //         : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
+    // }
 
-    /** @description Returns a solidity verifier */
-    async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
-        await this.instantiate()
-        const vkBuf =
-            vk ?? (await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive))
-        return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf))
-    }
+    // /** @description Returns a solidity verifier */
+    // async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
+    //     await this.instantiate()
+    //     const vkBuf =
+    //         vk ?? (await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive))
+    //     return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf))
+    // }
 
-    // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
-    async generateRecursiveProofArtifacts(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _proof: Uint8Array,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _numOfPublicInputs: number
-    ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
-        await this.instantiate()
-        // TODO(https://github.com/noir-lang/noir/issues/5661): This needs to be updated to handle recursive aggregation.
-        // There is still a proofAsFields method but we could consider getting rid of it as the proof itself
-        // is a list of field elements.
-        // UltraHonk also does not have public inputs directly prepended to the proof and they are still instead
-        // inserted at an offset.
-        // const proof = reconstructProofWithPublicInputs(proofData);
-        // const proofAsFields = (await this.api.acirProofAsFieldsUltraHonk(proof)).slice(numOfPublicInputs);
+    // // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
+    // async generateRecursiveProofArtifacts(
+    //     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    //     _proof: Uint8Array,
+    //     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    //     _numOfPublicInputs: number
+    // ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
+    //     await this.instantiate()
+    //     // TODO(https://github.com/noir-lang/noir/issues/5661): This needs to be updated to handle recursive aggregation.
+    //     // There is still a proofAsFields method but we could consider getting rid of it as the proof itself
+    //     // is a list of field elements.
+    //     // UltraHonk also does not have public inputs directly prepended to the proof and they are still instead
+    //     // inserted at an offset.
+    //     // const proof = reconstructProofWithPublicInputs(proofData);
+    //     // const proofAsFields = (await this.api.acirProofAsFieldsUltraHonk(proof)).slice(numOfPublicInputs);
 
-        // TODO: perhaps we should put this in the init function. Need to benchmark
-        // TODO how long it takes.
-        const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
-        const vk = await this.api.acirVkAsFieldsUltraHonk(vkBuf)
+    //     // TODO: perhaps we should put this in the init function. Need to benchmark
+    //     // TODO how long it takes.
+    //     const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
+    //     const vk = await this.api.acirVkAsFieldsUltraHonk(vkBuf)
 
-        return {
-            // TODO(https://github.com/noir-lang/noir/issues/5661)
-            proofAsFields: [],
-            vkAsFields: vk.map((vk) => vk.toString()),
-            // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
-            // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
-            // they expect
-            vkHash: ""
-        }
-    }
+    //     return {
+    //         // TODO(https://github.com/noir-lang/noir/issues/5661)
+    //         proofAsFields: [],
+    //         vkAsFields: vk.map((vk) => vk.toString()),
+    //         // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
+    //         // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
+    //         // they expect
+    //         vkHash: ""
+    //     }
+    // }
 
-    async destroy(): Promise<void> {
-        if (!this.api) {
-            return
-        }
-        await this.api.destroy()
-    }
+    // async destroy(): Promise<void> {
+    //     if (!this.api) {
+    //         return
+    //     }
+    //     await this.api.destroy()
+    // }
 }
 
 // Converts bytecode from a base64 string to a Uint8Array

@@ -117,7 +117,9 @@ describe("Noir proof", () => {
 
         it("Should generate a Noir Semaphore proof with MerkleTreeDepth from getMerkleTreeDepth(), merkleProofLength being 0", async () => {
             const group = new Group([identity.commitment])
-            const newMerkleTreeDepth = getMerkleTreeDepth(identity, group)
+            const leafIndex = group.indexOf(identity.commitment)
+            const merkleProof = group.generateMerkleProof(leafIndex)
+            const newMerkleTreeDepth = getMerkleTreeDepth(identity, merkleProof)
             const backend = await initSemaphoreNoirBackend(newMerkleTreeDepth)
             const proof = await generateNoirProof(identity, group, message, scope, backend)
             const nullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
@@ -179,6 +181,15 @@ describe("Noir proof", () => {
             const fun = () => initSemaphoreNoirBackend(2, dummyCircuit)
 
             await expect(fun).rejects.toThrow("Failed to load compiled Noir circuit")
+        })
+
+        it("Should throw an error if merkleTreeDepth exceeds the limit", async () => {
+            const group = new Group([1n, 2n, identity.commitment])
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, scope, backend)
+            proof.merkleTreeDepth = 1000
+
+            await expect(verifyNoirProof(proof, backend)).rejects.toThrow("The tree depth must be a number between")
         })
     })
     describe("# SemaphoreNoirBackend", () => {
