@@ -7,7 +7,6 @@ import {
     requireString
 } from "@zk-kit/utils/error-handlers"
 import { Project, maybeGetNoirVk } from "@zk-kit/artifacts"
-import fs from "fs"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
 import { SemaphoreNoirBackend } from "./semaphore-noir-backend"
@@ -49,17 +48,9 @@ export default async function verifyNoirProof(
         proof: proof.proofBytes
     }
 
-    let vk
-    try {
-        const vkPath = await maybeGetNoirVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
-        vk = fs.readFileSync(vkPath)
-    } catch (err) {
-        throw new Error(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
-    }
+    const vk = await maybeGetNoirVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
 
-    // console.time("backend.verifyProof");
     const result = await backend.honkBackend.verifyProof(proofData, undefined, vk)
-    // console.timeEnd("backend.verifyProof");
 
     return result
 }

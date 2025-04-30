@@ -12,8 +12,9 @@ export type SemaphoreNoirBackend = {
     merkleTreeDepth: number
 }
 
-// init Honk Backend so it's reusable
-// UltraHonkBackend is tied to a circuit, be sure to re-initialize when changing merkleTreeDepth
+/** It initializes and returns a SemaphoreNoirBackend
+ * UltraHonkBackend is tied to a circuit. Make sure to re-initialize it when changing merkleTreeDepth
+ */
 export async function initSemaphoreNoirBackend(
     merkleTreeDepth: number,
     noirCompiledCircuit?: CompiledCircuit,
@@ -38,7 +39,11 @@ export async function initSemaphoreNoirBackend(
     }
 }
 
-// calculate merkleTreeDepth with a group or a merkle proof
+/**
+ * Calculates merkleTreeDepth with a group or a merkle proof
+ * This method can be used to get merkleTreeDepth before calling initSemaphoreNoirBackend,
+ * of check if the merkleTreeDepth in SemaphoreNoirBackend is big enough for a merklr proof.
+ */
 export function getMerkleTreeDepth(identity: Identity, groupOrMerkleProof: Group | MerkleProof): number {
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
 
