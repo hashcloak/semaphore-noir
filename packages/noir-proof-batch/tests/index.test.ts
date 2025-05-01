@@ -1,14 +1,23 @@
 import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
 import { batchSemaphoreNoirProofs } from "@semaphore-protocol/noir-proof-batch"
-import { readFile } from "fs/promises"
+import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
+import { CompiledCircuit } from "@noir-lang/noir_js"
+import { mkdir, readFile } from "fs/promises"
 import path from "path"
+import { spawn } from "child_process"
 import generateNoirProof from "../src/generate-proof-noir"
 import verifyNoirProof from "../src/batch-verify"
 
-const batchLeavesCircuitPath = path.join(__dirname, "../circuits/batch_2_leaves/target/batch_2_leaves.json")
-const batchNodesCircuitPath = path.join(__dirname, "../circuits/batch_2_nodes/target/batch_2_nodes.json")
-// 3. Semaphore circuit VK for MAX_DEPTH 10
+const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves")
+const nodesCircuitDir = path.join(__dirname, "../circuits/batch_2_nodes")
+
+const batchLeavesCircuitPath = path.join(leavesCircuitDir, "target/batch_2_leaves.json")
+const batchNodesCircuitPath = path.join(nodesCircuitDir, "target/batch_2_nodes.json")
+const keccakVkDir = path.join(nodesCircuitDir, "keccak")
+const defaultVkPath = path.join(nodesCircuitDir, "target/vk")
+const keccakVkPath = path.join(keccakVkDir, "vk")
+
 const semaphoreCircuitVk = [
     "0x0000000000000000000000000000000000000000000000000000000000004000",
     "0x0000000000000000000000000000000000000000000000000000000000000014",
@@ -140,209 +149,118 @@ const semaphoreCircuitVk = [
     "0x000000000000000000000000000000000009be1dd4a929fe8be4cf6ca331094f"
 ]
 
+async function runNargoCompile(circuitDir: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const nargo = spawn("nargo", ["compile"], {
+            cwd: circuitDir,
+            stdio: "inherit"
+        })
+
+        nargo.on("error", (err) => reject(err))
+        nargo.on("close", (code) => {
+            if (code !== 0) {
+                reject(new Error(`nargo compile failed with exit code ${code}`))
+            } else {
+                resolve()
+            }
+        })
+    })
+}
+async function runBB(argsArray: string[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const bbProcess = spawn("bb", argsArray, { stdio: "inherit" })
+
+        bbProcess.on("error", (err) => {
+            reject(new Error(`Failed to start bb process: ${err.message}`))
+        })
+
+        bbProcess.on("close", () => resolve())
+    })
+}
+
 describe("batchSemaphoreNoirProofs", () => {
-    it("should batch 8 Semaphore proofs", async () => {
-        const batchLeavesCircuit = JSON.parse(await readFile(batchLeavesCircuitPath, "utf8"))
-        const batchNodesCircuit = JSON.parse(await readFile(batchNodesCircuitPath, "utf8"))
+    const allProofs: SemaphoreNoirProof[] = []
+    const maxProofs = 17
+    let batchLeavesCircuit: CompiledCircuit
+    let batchNodesCircuit: CompiledCircuit
 
-        const merkleTreeDepth = 10
-        const message = "Hello world"
-        const scope = "Scope"
+    const merkleTreeDepth = 10
+    const message = "Hello world"
+    const scope = "Scope"
 
-        const nrProofs = 8 // 2^3
-        const identities: Identity[] = []
+    beforeAll(async () => {
+        // 1. Compile the circuits using nargo
+        await runNargoCompile(leavesCircuitDir)
+        await runNargoCompile(nodesCircuitDir)
+
+        // 2. Load compiled circuits
+        batchLeavesCircuit = JSON.parse(await readFile(batchLeavesCircuitPath, "utf8"))
+        batchNodesCircuit = JSON.parse(await readFile(batchNodesCircuitPath, "utf8"))
+
+        // 3. Generate default VK
+        await runBB([
+            "write_vk",
+            "-v",
+            "--scheme",
+            "ultra_honk",
+            "-b",
+            batchNodesCircuitPath,
+            "-o",
+            path.join(nodesCircuitDir, "target"),
+            "--honk_recursion",
+            "1"
+        ])
+
+        // 4. Generate keccak VK
+        await mkdir(keccakVkDir, { recursive: true })
+
+        await runBB([
+            "write_vk",
+            "-v",
+            "--scheme",
+            "ultra_honk",
+            "--oracle_hash",
+            "keccak",
+            "-b",
+            batchNodesCircuitPath,
+            "-o",
+            keccakVkDir,
+            "--honk_recursion",
+            "1"
+        ])
+
+        // 5. Generate proofs that can be used in the tests
         const group = new Group()
+        const identities: Identity[] = []
 
-        // 1. Generate identities and add to group
-        for (let i = 0; i < nrProofs; i += 1) {
+        for (let i = 0; i < maxProofs; i += 1) {
             const identity = new Identity(`secret-${i}`)
             identities.push(identity)
             group.addMember(identity.commitment)
         }
 
-        // 2. Generate proofs for each identity
-        const proofs = []
         for (const identity of identities) {
             const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
-            proofs.push(proof)
+            allProofs.push(proof)
         }
-
-        // 4. Batch the generated proofs
-        await batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk, batchLeavesCircuit, batchNodesCircuit)
-
-        const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
-        const recursion = path.join(tempDir, "recursion")
-        // TODO make sure this exists
-        const vkPath = path.normalize(path.join("./", "packages/noir-proof-batch/circuits/batch_2_nodes/target/vk"))
-        // 5. Verify the root proof
-        const verified = await verifyNoirProof(vkPath, `${recursion}/proof`)
-        expect(verified).toBe(true)
     }, 600_000)
 
-    //                2 <- root
-    //               /  \
-    //              /    \
-    //            2       \
-    //           / \       \
-    //          /   \       \
-    //      2           2    \
-    //     / \         / \     \
-    //   2     2     2     2     2
-    //  / \   / \   / \   / \   / \
-    // s1 s2 s3 s4 s5 s6 s7 s8 s9 s9_copy
-    it("should batch 9 Semaphore proofs", async () => {
-        const batchLeavesCircuit = JSON.parse(await readFile(batchLeavesCircuitPath, "utf8"))
-        const batchNodesCircuit = JSON.parse(await readFile(batchNodesCircuitPath, "utf8"))
+    const runBatchTest = (nrProofs: number, useKeccak = false) =>
+        it(`should batch ${nrProofs} Semaphore proofs${useKeccak ? " (keccak)" : ""}`, async () => {
+            const proofs = allProofs.slice(0, nrProofs)
+            await batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk, batchLeavesCircuit, batchNodesCircuit, useKeccak)
 
-        const merkleTreeDepth = 10
-        const message = "Hello world"
-        const scope = "Scope"
+            const recursion = path.normalize(path.join("./", "semaphore_artifacts", "recursion"))
+            const vkPath = useKeccak ? keccakVkPath : defaultVkPath
 
-        const nrProofs = 9
-        const identities: Identity[] = []
-        const group = new Group()
+            const verified = await verifyNoirProof(vkPath, `${recursion}/proof`, useKeccak)
+            expect(verified).toBe(true)
+        }, 600_000)
 
-        // 1. Generate identities and add to group
-        for (let i = 0; i < nrProofs; i += 1) {
-            const identity = new Identity(`secret-${i}`)
-            identities.push(identity)
-            group.addMember(identity.commitment)
-        }
-
-        // 2. Generate proofs for each identity
-        const proofs = []
-        for (const identity of identities) {
-            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
-            proofs.push(proof)
-        }
-
-        // 4. Batch the generated proofs
-        await batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk, batchLeavesCircuit, batchNodesCircuit)
-
-        const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
-        const recursion = path.join(tempDir, "recursion")
-        // TODO make sure this exists
-        const vkPath = path.normalize(path.join("./", "packages/noir-proof-batch/circuits/batch_2_nodes/target/vk"))
-        // 5. Verify the root proof
-        const verified = await verifyNoirProof(vkPath, `${recursion}/proof`)
-        expect(verified).toBe(true)
-    }, 600_000)
-
-    // Since the 16th proof gets padded, this tree becomes quickly balanced again
-    it("should batch 15 Semaphore proofs", async () => {
-        const batchLeavesCircuit = JSON.parse(await readFile(batchLeavesCircuitPath, "utf8"))
-        const batchNodesCircuit = JSON.parse(await readFile(batchNodesCircuitPath, "utf8"))
-
-        const merkleTreeDepth = 10
-        const message = "Hello world"
-        const scope = "Scope"
-
-        const nrProofs = 15
-        const identities: Identity[] = []
-        const group = new Group()
-
-        for (let i = 0; i < nrProofs; i += 1) {
-            const identity = new Identity(`secret-${i}`)
-            identities.push(identity)
-            group.addMember(identity.commitment)
-        }
-
-        const proofs = []
-        for (const identity of identities) {
-            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
-            proofs.push(proof)
-        }
-
-        await batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk, batchLeavesCircuit, batchNodesCircuit)
-
-        const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
-        const recursion = path.join(tempDir, "recursion")
-        const vkPath = path.normalize(path.join("./", "packages/noir-proof-batch/circuits/batch_2_nodes/target/vk"))
-
-        const verified = await verifyNoirProof(vkPath, `${recursion}/proof`)
-        expect(verified).toBe(true)
-    }, 600_000)
-
-    it("should batch 16 Semaphore proofs", async () => {
-        const batchLeavesCircuit = JSON.parse(await readFile(batchLeavesCircuitPath, "utf8"))
-        const batchNodesCircuit = JSON.parse(await readFile(batchNodesCircuitPath, "utf8"))
-
-        const merkleTreeDepth = 10
-        const message = "Hello world"
-        const scope = "Scope"
-
-        const nrProofs = 16 // 2^4
-        const identities: Identity[] = []
-        const group = new Group()
-
-        for (let i = 0; i < nrProofs; i += 1) {
-            const identity = new Identity(`secret-${i}`)
-            identities.push(identity)
-            group.addMember(identity.commitment)
-        }
-
-        const proofs = []
-        for (const identity of identities) {
-            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
-            proofs.push(proof)
-        }
-
-        await batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk, batchLeavesCircuit, batchNodesCircuit)
-
-        const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
-        const recursion = path.join(tempDir, "recursion")
-        const vkPath = path.normalize(path.join("./", "packages/noir-proof-batch/circuits/batch_2_nodes/target/vk"))
-
-        const verified = await verifyNoirProof(vkPath, `${recursion}/proof`)
-        expect(verified).toBe(true)
-    }, 600_000)
-
-    //                                      2 <- root
-    //                                     / \
-    //                                    /   \
-    //                                   /     \
-    //                        2                  \
-    //                       / \                   \
-    //                      /   \                    \
-    //            2                          2         \
-    //           / \                        / \          \
-    //          /   \                      /   \           \
-    //      2           2            2              2        \
-    //     / \         / \          / \            / \         \
-    //   2     2     2     2     2       2      2       2        2
-    //  / \   / \   / \   / \   / \     / \    / \     / \      / \
-    // s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15 s16 s17 s17_copy
-    it("should batch 17 Semaphore proofs", async () => {
-        const batchLeavesCircuit = JSON.parse(await readFile(batchLeavesCircuitPath, "utf8"))
-        const batchNodesCircuit = JSON.parse(await readFile(batchNodesCircuitPath, "utf8"))
-
-        const merkleTreeDepth = 10
-        const message = "Hello world"
-        const scope = "Scope"
-
-        const nrProofs = 17
-        const identities: Identity[] = []
-        const group = new Group()
-
-        for (let i = 0; i < nrProofs; i += 1) {
-            const identity = new Identity(`secret-${i}`)
-            identities.push(identity)
-            group.addMember(identity.commitment)
-        }
-
-        const proofs = []
-        for (const identity of identities) {
-            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
-            proofs.push(proof)
-        }
-
-        await batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk, batchLeavesCircuit, batchNodesCircuit)
-
-        const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
-        const recursion = path.join(tempDir, "recursion")
-        const vkPath = path.normalize(path.join("./", "packages/noir-proof-batch/circuits/batch_2_nodes/target/vk"))
-
-        const verified = await verifyNoirProof(vkPath, `${recursion}/proof`)
-        expect(verified).toBe(true)
-    }, 600_000)
+    runBatchTest(8)
+    runBatchTest(8, true)
+    runBatchTest(9)
+    runBatchTest(15)
+    runBatchTest(16)
+    runBatchTest(17)
 })
