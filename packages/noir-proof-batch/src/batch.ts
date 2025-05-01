@@ -1,7 +1,7 @@
 import type { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
 import path from "path"
-import { spawnSync } from "child_process"
+import { spawn } from "child_process"
 import { mkdirSync, readFileSync } from "fs"
 import { writeFile, mkdir } from "fs/promises"
 import { NoirBatchProof } from "./types"
@@ -41,22 +41,35 @@ export function deflattenFields(flattenedFields: Uint8Array): string[] {
     return chunkedFlattenedPublicInputs.map(uint8ArrayToHex)
 }
 
-export function runBB(argsArray: any[]) {
-    const result = spawnSync("bb", argsArray, { stdio: "inherit" })
-    if (result.status !== 0) {
-        throw new Error(`bb exited with code ${result.status}`)
-    }
+async function runBB(argsArray: string[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const bbProcess = spawn("bb", argsArray, { stdio: "inherit" })
+
+        bbProcess.on("error", (err) => {
+            reject(new Error(`Failed to start bb process: ${err.message}`))
+        })
+
+        bbProcess.on("close", (code: number) => {
+            if (code === 0) {
+                resolve()
+            } else {
+                reject(new Error(`bb exited with code ${code}`))
+            }
+        })
+    })
 }
 
 export default async function batchSemaphoreNoirProofs(
     proofs: SemaphoreNoirProof[],
-    // TODO should the vk be added per proof? Rn it assumes all Semaphore proofs are of the same max_depth
-    semaphoreCircuitVk: string[], // should be 128 bytes
+    semaphoreCircuitVk: string[],
     // TODO make both circuits optional, so they can be retrieved
     batchLeavesCircuit: CompiledCircuit,
-    batchNodesCircuit: CompiledCircuit
+    batchNodesCircuit: CompiledCircuit,
+    keccak?: boolean
 ): Promise<NoirBatchProof> {
-    // TODO assert proofs.length > 1
+    if (proofs.length < 3) {
+        throw new Error("At least three Semaphore proofs are required for batching.")
+    }
     const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
     let batchLeavesNoir: Noir
     let batchNodesNoir: Noir
@@ -84,6 +97,7 @@ export default async function batchSemaphoreNoirProofs(
 
     const leafProofs = [...proofs]
 
+    // If the number of Semaphore proofs is odd, self-pair the last one
     if (leafProofs.length % 2 === 1) {
         const lastProof = leafProofs[leafProofs.length - 1]
         leafProofs.push(lastProof)
@@ -127,7 +141,7 @@ export default async function batchSemaphoreNoirProofs(
         })
         await writeFile(`${recursion}/witness_${i}.gz`, witness)
 
-        runBB([
+        await runBB([
             "prove",
             "--output_format",
             "bytes_and_fields",
@@ -444,10 +458,7 @@ export default async function batchSemaphoreNoirProofs(
                 })
                 await writeFile(`${recursion}/witness_nodes_${layer}_${i}.gz`, witness)
 
-                // TODO if currentLayerProofs.length == 2 this is the root proof.
-                // if that is the case and keccak == true, we need additional flags:
-                //             "--oracle_hash", "keccak"
-                runBB([
+                const args = [
                     "prove",
                     "--output_format",
                     "bytes_and_fields",
@@ -458,7 +469,13 @@ export default async function batchSemaphoreNoirProofs(
                     "-o",
                     recursion,
                     "--recursive"
-                ])
+                ]
+                // When creating the last proof, check if we need to generate it with keccak flag
+                if (currentLayerProofs.length === 2 && keccak) {
+                    args.push("--oracle_hash")
+                    args.push("keccak")
+                }
+                await runBB(args)
                 const proofFields = JSON.parse(readFileSync(`${recursion}/proof_fields.json`, "utf-8"))
 
                 nextLayerProofs.push({
@@ -476,8 +493,6 @@ export default async function batchSemaphoreNoirProofs(
         layer += 1
     }
 
-    // Return the root proof
-    // TODO separate the root proof from the other layers and add optional keccak flag to inputs
     const rootBatchProof = currentLayerProofs[0].proof
     return rootBatchProof
 }
