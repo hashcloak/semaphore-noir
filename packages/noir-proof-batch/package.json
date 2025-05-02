@@ -4,14 +4,12 @@
     "description": "Batch Semaphore Noir proofs.",
     "type": "module",
     "license": "MIT",
-    "main": "dist/index.node.js",
+    "main": "dist/index.js",
     "types": "dist/types/index.d.ts",
     "exports": {
-        ".": {
-            "types": "./dist/types/index.d.ts",
-            "import": "./dist/index.node.js",
-            "require": "./dist/index.node.js"
-        }
+        "types": "./dist/types/index.d.ts",
+        "require": "./dist/index.cjs",
+        "default": "./dist/index.js"
     },
     "files": [
         "dist/",
@@ -45,6 +43,7 @@
     "dependencies": {
         "@aztec/bb.js": "^0.82.2",
         "@noir-lang/noir_js": "1.0.0-beta.3",
+        "@semaphore-protocol/proof": "^4.9.1",
         "@semaphore-protocol/utils": "^4.9.1"
     }
 }
