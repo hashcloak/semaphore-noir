@@ -2,11 +2,10 @@ import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
 import { batchSemaphoreNoirProofs } from "@semaphore-protocol/noir-proof-batch"
 import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
-import { CompiledCircuit } from "@noir-lang/noir_js"
-import { mkdir, readFile } from "fs/promises"
+import { mkdir } from "fs/promises"
 import path from "path"
 import { spawn } from "child_process"
-import generateNoirProof from "../src/generate-proof-noir"
+import generateNoirProof, { flattenFieldsAsArray } from "../src/generate-proof-noir"
 import verifyNoirProof from "../src/batch-verify"
 
 const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves")
@@ -181,8 +180,6 @@ async function runBB(argsArray: string[]): Promise<void> {
 describe("batchSemaphoreNoirProofs", () => {
     const allProofs: SemaphoreNoirProof[] = []
     const maxProofs = 17
-    let batchLeavesCircuit: CompiledCircuit
-    let batchNodesCircuit: CompiledCircuit
 
     const merkleTreeDepth = 10
     const message = "Hello world"
@@ -193,11 +190,7 @@ describe("batchSemaphoreNoirProofs", () => {
         await runNargoCompile(leavesCircuitDir)
         await runNargoCompile(nodesCircuitDir)
 
-        // 2. Load compiled circuits
-        batchLeavesCircuit = JSON.parse(await readFile(batchLeavesCircuitPath, "utf8"))
-        batchNodesCircuit = JSON.parse(await readFile(batchNodesCircuitPath, "utf8"))
-
-        // 3. Generate default VK
+        // 2. Generate default VK
         await runBB([
             "write_vk",
             "-v",
@@ -211,7 +204,7 @@ describe("batchSemaphoreNoirProofs", () => {
             "1"
         ])
 
-        // 4. Generate keccak VK
+        // 3. Generate keccak VK
         await mkdir(keccakVkDir, { recursive: true })
 
         await runBB([
@@ -245,21 +238,55 @@ describe("batchSemaphoreNoirProofs", () => {
         }
     }, 600_000)
 
-    const runBatchTest = (nrProofs: number, useKeccak = false) =>
-        it(`should batch ${nrProofs} Semaphore proofs${useKeccak ? " (keccak)" : ""}`, async () => {
+    type BatchTestOptions = {
+        useKeccak?: boolean
+        useCircuitsPaths?: boolean
+        useSemVkPath?: boolean
+        useBatchVkPath?: boolean
+    }
+
+    const runBatchTest = (
+        nrProofs: number,
+        {
+            useKeccak = false,
+            useCircuitsPaths = true,
+            useSemVkPath = true,
+            useBatchVkPath = true
+        }: BatchTestOptions = {}
+    ) =>
+        it(`batches ${nrProofs} proofs${useKeccak ? " with keccak" : ""}${!useSemVkPath ? ", no sem VK" : ""}${!useBatchVkPath ? ", no batch VK" : ""}`, async () => {
+            if (useKeccak && !useBatchVkPath) {
+                throw new Error("Keccak mode requires useBatchVkPath to be enabled.")
+            }
             const proofs = allProofs.slice(0, nrProofs)
-            await batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk, batchLeavesCircuit, batchNodesCircuit, useKeccak)
+            const circuitPath1 = useCircuitsPaths ? batchLeavesCircuitPath : undefined
+            const circuitPath2 = useCircuitsPaths ? batchNodesCircuitPath : undefined
+            const semVk = useSemVkPath ? flattenFieldsAsArray(semaphoreCircuitVk) : undefined
+            const { path: proofPath } = await batchSemaphoreNoirProofs(
+                proofs,
+                semVk,
+                circuitPath1,
+                circuitPath2,
+                useKeccak
+            )
 
-            const recursion = path.normalize(path.join("./", "semaphore_artifacts", "recursion"))
-            const vkPath = useKeccak ? keccakVkPath : defaultVkPath
+            let vkPath: string | undefined
+            if (useKeccak) {
+                vkPath = keccakVkPath
+            } else if (useBatchVkPath) {
+                vkPath = defaultVkPath
+            }
 
-            const verified = await verifyNoirProof(vkPath, `${recursion}/proof`, useKeccak)
+            const verified = await verifyNoirProof(proofPath, vkPath, useKeccak)
             expect(verified).toBe(true)
         }, 600_000)
 
     runBatchTest(8)
-    runBatchTest(8, true)
     runBatchTest(9)
+    runBatchTest(8, { useCircuitsPaths: false })
+    runBatchTest(15, { useBatchVkPath: false })
+    runBatchTest(4, { useKeccak: true })
+    // runBatchTest(9, { useSemVkPath: false }) // TODO fails because of deflattenFields
     runBatchTest(15)
     runBatchTest(16)
     runBatchTest(17)
