@@ -1,9 +1,11 @@
 import type { SemaphoreNoirProof } from "@semaphore-protocol/proof"
-import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
+import { Noir } from "@noir-lang/noir_js"
+import { getCompiledBatchCircuitWithPath, BatchingCircuitType, Project, maybeGetNoirVk } from "@zk-kit/artifacts"
 import path from "path"
-import { spawn } from "child_process"
+import os from "os"
 import { mkdirSync, readFileSync } from "fs"
-import { writeFile, mkdir } from "fs/promises"
+import { spawn } from "child_process"
+import { readFile, writeFile } from "fs/promises"
 import { NoirBatchProof } from "./types"
 import hash from "./hash"
 
@@ -61,32 +63,54 @@ async function runBB(argsArray: string[]): Promise<void> {
 
 export default async function batchSemaphoreNoirProofs(
     proofs: SemaphoreNoirProof[],
-    semaphoreCircuitVk: string[],
-    // TODO make both circuits optional, so they can be retrieved
-    batchLeavesCircuit: CompiledCircuit,
-    batchNodesCircuit: CompiledCircuit,
+    semaphoreCircuitVk?: Uint8Array,
+    batchLeavesCircuitPath?: string,
+    batchNodesCircuitPath?: string,
     keccak?: boolean
-): Promise<NoirBatchProof> {
+): Promise<{ proof: NoirBatchProof; path: string }> {
     if (proofs.length < 3) {
         throw new Error("At least three Semaphore proofs are required for batching.")
     }
-    const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
+    const tempDir = path.join(os.tmpdir(), "semaphore_artifacts")
+
+    let batchLeavesPath: string
+    let batchNodesPath: string
     let batchLeavesNoir: Noir
     let batchNodesNoir: Noir
 
-    try {
-        // store the compiled circuits locally for bb
-        await mkdir(tempDir).catch((err) => {
-            if (err.code !== "EEXIST") throw err
-        })
-        await writeFile(path.join(tempDir, `batch_2_leaves_circuit.json`), JSON.stringify(batchLeavesCircuit as any))
-        await writeFile(path.join(tempDir, `batch_2_nodes_circuit.json`), JSON.stringify(batchNodesCircuit as any))
-
-        batchLeavesNoir = new Noir(batchLeavesCircuit)
-        batchNodesNoir = new Noir(batchNodesCircuit)
-    } catch (err) {
-        throw new TypeError(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
+    if (batchLeavesCircuitPath) {
+        batchLeavesPath = batchLeavesCircuitPath
+        const json = await readFile(batchLeavesCircuitPath, "utf-8")
+        batchLeavesNoir = new Noir(JSON.parse(json))
+    } else {
+        const { path: leavesPath, circuit } = await getCompiledBatchCircuitWithPath(
+            Project.SEMAPHORE_NOIR,
+            BatchingCircuitType.Leaves
+        )
+        batchLeavesPath = leavesPath
+        batchLeavesNoir = new Noir(circuit)
     }
+
+    if (batchNodesCircuitPath) {
+        batchNodesPath = batchNodesCircuitPath
+        const json = await readFile(batchNodesCircuitPath, "utf-8")
+        batchNodesNoir = new Noir(JSON.parse(json))
+    } else {
+        const { path: nodesPath, circuit } = await getCompiledBatchCircuitWithPath(
+            Project.SEMAPHORE_NOIR,
+            BatchingCircuitType.Nodes
+        )
+        batchNodesPath = nodesPath
+        batchNodesNoir = new Noir(circuit)
+    }
+    // We know there are at least 3 proofs and we assume they all have the same tree depth
+    const { merkleTreeDepth } = proofs[0]
+    if (!semaphoreCircuitVk) {
+        semaphoreCircuitVk = await maybeGetNoirVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+    }
+
+    // TODO FIX - this function doesn't work as expected!
+    const semaphoreCircuitVkFields = deflattenFields(semaphoreCircuitVk)
 
     const vkHash = `0x${"0".repeat(64)}`
 
@@ -126,13 +150,13 @@ export default async function batchSemaphoreNoirProofs(
         const { witness } = await batchLeavesNoir.execute({
             sp: [
                 {
-                    verification_key: semaphoreCircuitVk,
+                    verification_key: semaphoreCircuitVkFields,
                     proof: proofAsFields0,
                     public_inputs: publicInputs0,
                     key_hash: vkHash
                 },
                 {
-                    verification_key: semaphoreCircuitVk,
+                    verification_key: semaphoreCircuitVkFields,
                     proof: proofAsFields1,
                     public_inputs: publicInputs1,
                     key_hash: vkHash
@@ -146,7 +170,7 @@ export default async function batchSemaphoreNoirProofs(
             "--output_format",
             "bytes_and_fields",
             "-b",
-            `${tempDir}/batch_2_leaves_circuit.json`,
+            batchLeavesPath,
             "-w",
             `${recursion}/witness_${i}.gz`,
             "-o",
@@ -463,11 +487,11 @@ export default async function batchSemaphoreNoirProofs(
                     "--output_format",
                     "bytes_and_fields",
                     "-b",
-                    `${tempDir}/batch_2_nodes_circuit.json`,
+                    batchNodesPath,
                     "-w",
                     `${recursion}/witness_nodes_${layer}_${i}.gz`,
                     "-o",
-                    recursion,
+                    `${recursion}`,
                     "--recursive"
                 ]
                 // When creating the last proof, check if we need to generate it with keccak flag
@@ -493,6 +517,11 @@ export default async function batchSemaphoreNoirProofs(
         layer += 1
     }
 
+    const finalProofPath = `${recursion}/proof`
     const rootBatchProof = currentLayerProofs[0].proof
-    return rootBatchProof
+
+    return {
+        proof: rootBatchProof,
+        path: finalProofPath
+    }
 }

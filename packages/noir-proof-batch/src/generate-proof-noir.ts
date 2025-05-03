@@ -4,10 +4,11 @@ import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
 import { requireDefined, requireNumber, requireObject, requireTypes } from "@zk-kit/utils/error-handlers"
 import type { BigNumberish } from "ethers"
 import { CompiledCircuit, Noir } from "@noir-lang/noir_js"
-import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
+import { getCompiledNoirCircuitWithPath, Project } from "@zk-kit/artifacts"
 import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import path from "path"
 import fs from "fs"
+import os from "os"
 import { writeFile, mkdir } from "fs/promises"
 import { spawn } from "child_process"
 import hash from "./hash"
@@ -70,9 +71,10 @@ export function flattenFieldsAsArray(fields: string[]): Uint8Array {
  * @param message The Semaphore message
  * @param scope The Semaphore scope
  * @param merkleTreeDepth The depth of the tree for which the circuit was compiled
- * @param noirCompiledCircuit The precompiled Noir circuit
- * By selecting this option, the challenges in the proof will be generated with the keccak hash function instead of poseidon.
- * @returns The Semaphore Noir proof ready to be verified.
+ * @param circuitPath Optional path to the precompiled circuit
+ *
+ * Note: This proof shouldn't be generated with the `keccak` flag, since it will be batched with other proofs.
+ * @returns The Semaphore Noir proof ready to be verified off-chain, or batched together with other SemaphoreProofs
  */
 export default async function generateNoirProof(
     identity: Identity,
@@ -80,7 +82,7 @@ export default async function generateNoirProof(
     message: BigNumberish | Uint8Array | string,
     scope: BigNumberish | Uint8Array | string,
     merkleTreeDepth?: number,
-    noirCompiledCircuit?: CompiledCircuit
+    circuitPath?: string
 ): Promise<SemaphoreNoirProof> {
     requireDefined(identity, "identity")
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
@@ -145,30 +147,26 @@ export default async function generateNoirProof(
     const hashedScope = hash(scope).toString() as `0x${string}`
     const hashedMessage = hash(message).toString() as `0x${string}`
 
-    // TODO change this to os.tmpdir()
-    const tempDir = path.normalize(path.join("./", "semaphore_artifacts"))
+    const tempDir = path.join(os.tmpdir(), "semaphore_artifacts")
     const timestamp = Date.now()
     const proofOutputDir = path.join(tempDir, `${timestamp}`)
     await mkdir(proofOutputDir, { recursive: true })
+
+    let compiledCircuit: CompiledCircuit
     let noir: Noir
+
     try {
-        // TODO consider making maybeGetCompiledNoirCircuit return the path instead of the object
-        // If the Noir circuit has not been passed, it will be automatically downloaded.
-        noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
-
-        // store the compiledCircuit locally for bb
-        await mkdir(tempDir).catch((err) => {
-            if (err.code !== "EEXIST") throw err
-        })
-        await writeFile(
-            path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
-            JSON.stringify(noirCompiledCircuit as any)
-        )
-
-        // Initialize Noir with the compiled circuit
-        noir = new Noir(noirCompiledCircuit)
+        if (!circuitPath) {
+            const result = await getCompiledNoirCircuitWithPath(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+            circuitPath = result.path
+            compiledCircuit = result.circuit
+        } else {
+            const raw = await fs.promises.readFile(circuitPath, "utf-8")
+            compiledCircuit = JSON.parse(raw) as CompiledCircuit
+        }
+        noir = new Noir(compiledCircuit)
     } catch (err) {
-        throw new TypeError(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
+        throw new TypeError(`Failed to instantiate Noir: ${(err as Error).message}`)
     }
 
     // Generate witness
@@ -183,14 +181,13 @@ export default async function generateNoirProof(
     // store witness
     await writeFile(path.join(tempDir, "witness.gz"), witness)
 
-    // TODO cleanup cc calls
-    // start bb_prove
+    // Generate the proof with bb cli
     const args = [
         "prove",
         "--scheme",
         "ultra_honk",
         "-b",
-        path.join(tempDir, `circuit_${merkleTreeDepth}.json`),
+        circuitPath,
         "-w",
         path.join(tempDir, "witness.gz"),
         "-o",
