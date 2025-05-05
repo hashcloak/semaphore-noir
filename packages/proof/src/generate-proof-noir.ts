@@ -1,6 +1,7 @@
 import type { Group, MerkleProof } from "@semaphore-protocol/group"
 import type { Identity } from "@semaphore-protocol/identity"
 import { requireDefined, requireObject, requireTypes } from "@zk-kit/utils/error-handlers"
+import { MAX_DEPTH, MIN_DEPTH } from "@semaphore-protocol/utils/constants"
 import type { BigNumberish } from "ethers"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
@@ -16,9 +17,8 @@ import { SemaphoreNoirBackend } from "./semaphore-noir-backend"
  * for example the id of an election in which voters can only vote once.
  * The hash of the identity's scope and secret scalar is called a nullifier and can be
  * used to verify whether that identity has already generated a valid proof in that scope.
- * The merkleTreeDepth of the tree determines which zero-knowledge artifacts to use to generate the proof.
- * If it is not defined, the length of the Merkle proof is used to determine the circuit.
- * Finally, the compiled Noir circuit can be passed directly, or the correct circuit will be fetched.
+ * The backend determines which UltraHonkBackend and Noir instance to use to generate the proof.
+ * It is tied to the Noir circuit / merkleTreeDepth, be sure to re-initiate the backend if it is changed.
  *
  * Please keep in mind that groups with 1 member or 2 members cannot be considered anonymous.
  *
@@ -26,10 +26,7 @@ import { SemaphoreNoirBackend } from "./semaphore-noir-backend"
  * @param groupOrMerkleProof The Semaphore group or the Merkle proof for the identity
  * @param message The Semaphore message
  * @param scope The Semaphore scope
- * @param merkleTreeDepth The depth of the tree for which the circuit was compiled
- * @param noirCompiledCircuit The precompiled Noir circuit
- * @param threads The number of threads to run the UltraHonk backend worker on.
- * For node this can be os.cpus().length, for browser it can be navigator.hardwareConcurrency
+ * @param backend The SemaphoreNoirBackend used to generate the proof
  * @param keccak Use this option when you're using the Solidity verifier.
  * By selecting this option, the challenges in the proof will be generated with the keccak hash function instead of poseidon.
  * @returns The Semaphore Noir proof ready to be verified.
@@ -51,6 +48,10 @@ export default async function generateNoirProof(
     requireObject(groupOrMerkleProof, "groupOrMerkleProof")
     requireTypes(message, "message", ["string", "bigint", "number", "Uint8Array"])
     requireTypes(scope, "scope", ["string", "bigint", "number", "Uint8Array"])
+
+    if (backend.merkleTreeDepth < MIN_DEPTH || backend.merkleTreeDepth > MAX_DEPTH) {
+        throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
+    }
 
     // Message and scope can be strings, numbers or buffers (i.e. Uint8Array).
     // They will be converted to bigints anyway.
