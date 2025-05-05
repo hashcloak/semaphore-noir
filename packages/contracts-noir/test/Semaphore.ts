@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable jest/valid-expect */
-import { Group, Identity, SemaphoreNoirProof, generateNoirProof } from "@semaphore-protocol/core"
+import {
+    Group,
+    Identity,
+    SemaphoreNoirProof,
+    generateNoirProof,
+    initSemaphoreNoirBackend,
+    getMerkleTreeDepth
+} from "@semaphore-protocol/core"
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers"
 import { expect } from "chai"
 import path from "path"
@@ -324,7 +331,8 @@ describe("Semaphore", () => {
 
     describe("# verifyProof", () => {
         async function deployVerifyProofFixture() {
-            const { semaphoreContract, accountAddresses, groupId } = await loadFixture(deploySemaphoreFixture)
+            const { semaphoreContract, accountAddresses, groupId, verifierAddress } =
+                await loadFixture(deploySemaphoreFixture)
 
             const members = Array.from({ length: 3 }, (_, i) => new Identity(i.toString())).map(
                 ({ commitment }) => commitment
@@ -340,15 +348,13 @@ describe("Semaphore", () => {
 
             const merkleTreeDepth = 12
             const message = 2
-            // const proof: SemaphoreProof = await generateProof(identity, group, message, group.root, merkleTreeDepth)
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
             const proof: SemaphoreNoirProof = await generateNoirProof(
                 identity,
                 group,
                 message,
                 group.root,
-                merkleTreeDepth,
-                undefined,
-                undefined,
+                backend,
                 true
             )
             return {
@@ -356,7 +362,8 @@ describe("Semaphore", () => {
                 accountAddresses,
                 groupId,
                 members,
-                proof
+                proof,
+                verifierAddress
             }
         }
 
@@ -366,6 +373,27 @@ describe("Semaphore", () => {
             const transaction = semaphoreContract.verifyProof(11, proof)
 
             await expect(transaction).to.be.revertedWithCustomError(semaphoreContract, "Semaphore__GroupDoesNotExist")
+        })
+
+        it("Should not verify a proof if proof length incorrect", async () => {
+            const { semaphoreContract, proof, verifierAddress } = await loadFixture(deployVerifyProofFixture)
+
+            const wrongProof = {
+                merkleTreeDepth: proof.merkleTreeDepth,
+                merkleProofLength: proof.merkleProofLength,
+                merkleTreeRoot: proof.merkleTreeRoot,
+                message: proof.message,
+                nullifier: proof.nullifier,
+                scope: proof.scope,
+                proofBytes: new Uint8Array([1, 2, 3])
+            }
+
+            const SemaphoreNoirVerifier: SemaphoreNoirVerifier = await ethers.getContractAt(
+                "SemaphoreNoirVerifier",
+                verifierAddress
+            )
+            const transaction = semaphoreContract.verifyProof(0, wrongProof)
+            await expect(transaction).to.be.revertedWithCustomError(SemaphoreNoirVerifier, "ProofLengthWrong")
         })
 
         it("Should not verify a proof if the Merkle tree root is not part of the group", async () => {
@@ -402,17 +430,8 @@ describe("Semaphore", () => {
             const group = new Group()
 
             group.addMembers([members[0], members[1]])
-
-            const proof = await generateNoirProof(
-                identity,
-                group,
-                message,
-                group.root,
-                merkleTreeDepth,
-                undefined,
-                undefined,
-                true
-            )
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, group.root, backend, true)
 
             const transaction = semaphoreContract.verifyProof(groupId, proof)
 
@@ -433,16 +452,8 @@ describe("Semaphore", () => {
             group.addMembers(members)
 
             const scope = "random-scope"
-            const proof = await generateNoirProof(
-                identity,
-                group,
-                message,
-                scope,
-                merkleTreeDepth,
-                undefined,
-                undefined,
-                true
-            )
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, scope, backend, true)
             proof.merkleTreeDepth = 33
 
             const transaction = semaphoreContract.verifyProof(groupId, proof)
@@ -475,12 +486,7 @@ describe("Semaphore", () => {
             const merkleTreeDepth = 20
             const message = 2
 
-            // groupId = 0
-            await semaphoreContract["createGroup(address)"](accountAddresses[0])
-            await semaphoreContract.addMembers(0, [members[1], members[2]])
-
-            // groupId = 1
-            const groupId = 1
+            const groupId = 0
             await semaphoreContract["createGroup(address)"](accountAddresses[0])
             await semaphoreContract.addMember(groupId, members[0])
             await semaphoreContract.addMember(groupId, members[1])
@@ -489,17 +495,8 @@ describe("Semaphore", () => {
             const group = new Group()
 
             group.addMember(members[0])
-
-            const proof = await generateNoirProof(
-                identity,
-                group,
-                message,
-                group.root,
-                merkleTreeDepth,
-                undefined,
-                undefined,
-                true
-            )
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, group.root, backend, true)
             return { semaphoreContract, groupId, proof, accountAddresses, verifierAddress }
         }
 
@@ -515,7 +512,7 @@ describe("Semaphore", () => {
             // Create a group and add 3 members.
             await semaphoreContract["createGroup(address)"](accountAddresses[0])
 
-            const groupId = 2
+            const groupId = 1
 
             // Adding members to group
 
@@ -536,19 +533,10 @@ describe("Semaphore", () => {
 
                 await semaphoreContract.updateMember(groupId, members[1], members[2], siblings)
             }
-
+            const treeDepth = getMerkleTreeDepth(identity, group)
+            const backend = await initSemaphoreNoirBackend(treeDepth)
             // Validate a proof.
-
-            const proof = await generateNoirProof(
-                identity,
-                group,
-                42,
-                group.root,
-                undefined,
-                undefined,
-                undefined,
-                true
-            )
+            const proof = await generateNoirProof(identity, group, 42, group.root, backend, true)
 
             const transaction = await semaphoreContract.validateProof(groupId, proof)
 
@@ -577,8 +565,24 @@ describe("Semaphore", () => {
         })
 
         it("Should validate a proof for an onchain group with one member correctly", async () => {
-            const { semaphoreContract, groupId, proof } = await loadFixture(deployValidateProofFixture)
+            const { semaphoreContract, accountAddresses } = await loadFixture(deployValidateProofFixture)
 
+            const members = Array.from({ length: 1 }, (_, i) => new Identity(i.toString())).map(
+                ({ commitment }) => commitment
+            )
+            const merkleTreeDepth = 1
+            const message = 2
+
+            const groupId = 1
+            await semaphoreContract["createGroup(address)"](accountAddresses[0])
+            await semaphoreContract.addMembers(1, [members[0]])
+
+            const identity = new Identity("0")
+            const group = new Group()
+
+            group.addMember(members[0])
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, group.root, backend, true)
             const transaction = semaphoreContract.validateProof(groupId, proof)
 
             await expect(transaction)
@@ -595,8 +599,24 @@ describe("Semaphore", () => {
         })
 
         it("Should validate a proof for an onchain group with more than one member correctly", async () => {
-            const { semaphoreContract, groupId, proof } = await loadFixture(deployValidateProofFixture)
+            const { semaphoreContract, accountAddresses } = await loadFixture(deployValidateProofFixture)
 
+            const members = Array.from({ length: 10 }, (_, i) => new Identity(i.toString())).map(
+                ({ commitment }) => commitment
+            )
+            const merkleTreeDepth = 32
+            const message = 2
+
+            const groupId = 1
+            await semaphoreContract["createGroup(address)"](accountAddresses[0])
+            await semaphoreContract.addMembers(1, members)
+
+            const identity = new Identity("0")
+            const group = new Group()
+
+            group.addMembers(members)
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            const proof = await generateNoirProof(identity, group, message, group.root, backend, true)
             const transaction = semaphoreContract.validateProof(groupId, proof)
 
             await expect(transaction)

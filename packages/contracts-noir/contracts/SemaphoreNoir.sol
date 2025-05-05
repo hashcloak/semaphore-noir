@@ -176,9 +176,9 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
             }
         }
         bytes32[] memory publicInput = new bytes32[](4);
-        publicInput[0] = bytes32(proof.merkleTreeRoot);
-        publicInput[1] = bytes32(_hash(proof.scope));
-        publicInput[2] = bytes32(_hash(proof.message));
+        publicInput[0] = bytes32(_hash(proof.scope));
+        publicInput[1] = bytes32(_hash(proof.message));
+        publicInput[2] = bytes32(proof.merkleTreeRoot);
         publicInput[3] = bytes32(proof.nullifier);
 
         return verifier.verify(proof.proofBytes, publicInput, proof.merkleTreeDepth);
