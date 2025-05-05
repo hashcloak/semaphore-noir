@@ -44,6 +44,7 @@
         "@aztec/bb.js": "^0.82.2",
         "@noir-lang/noir_js": "1.0.0-beta.3",
         "@semaphore-protocol/proof": "^4.9.1",
-        "@semaphore-protocol/utils": "^4.9.1"
+        "@semaphore-protocol/utils": "^4.9.1",
+        "@zk-kit/artifacts": "file:<YOUR_PATH>/snark-artifacts/packages/artifacts"
     }
 }

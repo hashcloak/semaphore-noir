@@ -1,6 +1,11 @@
 import type { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import { Noir } from "@noir-lang/noir_js"
-import { getCompiledBatchCircuitWithPath, BatchingCircuitType, Project, maybeGetNoirVk } from "@zk-kit/artifacts"
+import {
+    getCompiledBatchCircuitWithPath,
+    BatchingCircuitType,
+    Project,
+    maybeGetBatchSemaphoreVk
+} from "@zk-kit/artifacts"
 import path from "path"
 import os from "os"
 import { mkdirSync, readFileSync } from "fs"
@@ -63,7 +68,7 @@ async function runBB(argsArray: string[]): Promise<void> {
 
 export default async function batchSemaphoreNoirProofs(
     proofs: SemaphoreNoirProof[],
-    semaphoreCircuitVk?: Uint8Array,
+    semaphoreCircuitVk?: string[],
     batchLeavesCircuitPath?: string,
     batchNodesCircuitPath?: string,
     keccak?: boolean
@@ -105,12 +110,12 @@ export default async function batchSemaphoreNoirProofs(
     }
     // We know there are at least 3 proofs and we assume they all have the same tree depth
     const { merkleTreeDepth } = proofs[0]
+    let semaphoreCircuitVkFinal: string[]
     if (!semaphoreCircuitVk) {
-        semaphoreCircuitVk = await maybeGetNoirVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+        semaphoreCircuitVkFinal = await maybeGetBatchSemaphoreVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+    } else {
+        semaphoreCircuitVkFinal = semaphoreCircuitVk
     }
-
-    // TODO FIX - this function doesn't work as expected!
-    const semaphoreCircuitVkFields = deflattenFields(semaphoreCircuitVk)
 
     const vkHash = `0x${"0".repeat(64)}`
 
@@ -150,13 +155,13 @@ export default async function batchSemaphoreNoirProofs(
         const { witness } = await batchLeavesNoir.execute({
             sp: [
                 {
-                    verification_key: semaphoreCircuitVkFields,
+                    verification_key: semaphoreCircuitVkFinal,
                     proof: proofAsFields0,
                     public_inputs: publicInputs0,
                     key_hash: vkHash
                 },
                 {
-                    verification_key: semaphoreCircuitVkFields,
+                    verification_key: semaphoreCircuitVkFinal,
                     proof: proofAsFields1,
                     public_inputs: publicInputs1,
                     key_hash: vkHash

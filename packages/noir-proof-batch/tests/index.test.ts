@@ -5,7 +5,7 @@ import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import { mkdir } from "fs/promises"
 import path from "path"
 import { spawn } from "child_process"
-import generateNoirProof, { flattenFieldsAsArray } from "../src/generate-proof-noir"
+import generateNoirProof from "../src/generate-proof-noir"
 import verifyNoirProof from "../src/batch-verify"
 
 const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves")
@@ -261,7 +261,7 @@ describe("batchSemaphoreNoirProofs", () => {
             const proofs = allProofs.slice(0, nrProofs)
             const circuitPath1 = useCircuitsPaths ? batchLeavesCircuitPath : undefined
             const circuitPath2 = useCircuitsPaths ? batchNodesCircuitPath : undefined
-            const semVk = useSemVkPath ? flattenFieldsAsArray(semaphoreCircuitVk) : undefined
+            const semVk = useSemVkPath ? semaphoreCircuitVk : undefined
             const { path: proofPath } = await batchSemaphoreNoirProofs(
                 proofs,
                 semVk,
@@ -286,7 +286,7 @@ describe("batchSemaphoreNoirProofs", () => {
     runBatchTest(8, { useCircuitsPaths: false })
     runBatchTest(15, { useBatchVkPath: false })
     runBatchTest(4, { useKeccak: true })
-    // runBatchTest(9, { useSemVkPath: false }) // TODO fails because of deflattenFields
+    runBatchTest(9, { useSemVkPath: false })
     runBatchTest(15)
     runBatchTest(16)
     runBatchTest(17)
