@@ -12,16 +12,13 @@ import hash from "./hash"
 import { SemaphoreNoirBackend } from "./semaphore-noir-backend"
 
 /**
- * Verifies whether a Semahpore Noir proof is valid. Depending on the value of
- * SemaphoreNoirProof.merkleTreeDepth, a different circuit is used.
- * (In practice that value either equals the depth of the tree of the Identities group,
- * or the length of the merkle proof used in the proof generation.)
+ * Verifies whether a Semahpore Noir proof is valid.
+ * Note that the correct backend.honkBackend must be used for the proof.
+ * If unsure, initialize new SemaphoreNoirBackend with proof.merkleTreeDepth.
  *
  * @param proof The Semaphore Noir proof
- * @param noirCompiledCircuit The precompiled Noir circuit
- * @param threads The number of threads to run the UltraHonk backend worker on.
- * For node this can be os.cpus().length, for browser it can be navigator.hardwareConcurrency
- * @returns
+ * @param backend The SemaphoreNoirBackend used to generate the proof
+ * @returns True if the proof is valid, false otherwise.
  */
 export default async function verifyNoirProof(
     proof: SemaphoreNoirProof,

@@ -1,8 +1,11 @@
+/* istanbul ignore file */
+
 import { BackendOptions, Barretenberg, ProofData, RawBuffer, splitHonkProof, reconstructHonkProof } from "@aztec/bb.js"
 import { decompressSync as gunzip } from "fflate"
 
 /**
  * Options for the UltraHonkBackend.
+ * https://github.com/AztecProtocol/aztec-packages/blob/v0.82.2/barretenberg/ts/src/barretenberg/backend.ts#L161
  */
 export type UltraHonkBackendOptions = {
     /**Selecting this option will use the keccak hash function instead of poseidon
@@ -12,20 +15,22 @@ export type UltraHonkBackendOptions = {
     keccak: boolean
 }
 
+// https://github.com/AztecProtocol/aztec-packages/blob/v0.82.2/barretenberg/ts/src/barretenberg/index.ts#L31
 export type CircuitOptions = {
     /** @description Whether to produce SNARK friendly proofs */
     recursive: boolean
 }
 
-export type ProofDataForRecursion = {
-    /** @description Public inputs of a proof */
-    publicInputs: string[]
-    /** @description An byte array representing the proof */
-    proof: string[]
-}
+// export type ProofDataForRecursion = {
+//     /** @description Public inputs of a proof */
+//     publicInputs: string[]
+//     /** @description An byte array representing the proof */
+//     proof: string[]
+// }
 
 /**
  * This is a modified verson of UltraHonkBackend from @aztec/bb.js
+ * https://github.com/AztecProtocol/aztec-packages/blob/v0.82.2/barretenberg/ts/src/barretenberg/backend.ts#L20
  * Most of the logic stays the same, except that numPublicInputs and vkBuf are added
  * as parameters of generateProof() and verifyProof(). So the verification keys
  * can be pre-calculated and reused.
@@ -209,6 +214,7 @@ export class UltraHonkBackend {
 }
 
 // Converts bytecode from a base64 string to a Uint8Array
+// https://github.com/AztecProtocol/aztec-packages/blob/v0.82.2/barretenberg/ts/src/barretenberg/backend.ts#L389
 function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
     const compressedByteCode = base64Decode(base64EncodedBytecode)
     return gunzip(compressedByteCode)
@@ -216,6 +222,7 @@ function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
 
 // Since this is a simple function, we can use feature detection to
 // see if we are in the nodeJs environment or the browser environment.
+// https://github.com/AztecProtocol/aztec-packages/blob/v0.82.2/barretenberg/ts/src/barretenberg/backend.ts#L396
 function base64Decode(input: string): Uint8Array {
     if (typeof Buffer !== "undefined") {
         // Node.js environment
@@ -229,11 +236,13 @@ function base64Decode(input: string): Uint8Array {
     }
 }
 
+// https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L59
 export function flattenFieldsAsArray(fields: string[]): Uint8Array {
     const flattenedPublicInputs = fields.map(hexToUint8Array)
     return flattenUint8Arrays(flattenedPublicInputs)
 }
 
+// https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L64
 function flattenUint8Arrays(arrays: Uint8Array[]): Uint8Array {
     const totalLength = arrays.reduce((acc, val) => acc + val.length, 0)
     const result = new Uint8Array(totalLength)
@@ -247,6 +256,7 @@ function flattenUint8Arrays(arrays: Uint8Array[]): Uint8Array {
     return result
 }
 
+// https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L91
 function hexToUint8Array(hex: string): Uint8Array {
     const sanitisedHex = BigInt(hex).toString(16).padStart(64, "0")
 
@@ -264,6 +274,7 @@ function hexToUint8Array(hex: string): Uint8Array {
     return u8
 }
 
+// https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L47
 export function deflattenFields(flattenedFields: Uint8Array): string[] {
     const publicInputSize = 32
     const chunkedFlattenedPublicInputs: Uint8Array[] = []
@@ -276,6 +287,7 @@ export function deflattenFields(flattenedFields: Uint8Array): string[] {
     return chunkedFlattenedPublicInputs.map(uint8ArrayToHex)
 }
 
+// https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L77
 function uint8ArrayToHex(buffer: Uint8Array): string {
     const hex: string[] = []
 

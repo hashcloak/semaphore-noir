@@ -92,6 +92,15 @@ describe("Noir proof", () => {
             await expect(fun).rejects.toThrow("overflow")
         })
 
+        it("Should throw an error if the tree depth is not supported", async () => {
+            const group = new Group([1n, 2n, identity.commitment])
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            backend.merkleTreeDepth = 100
+            const fun = () => generateNoirProof(identity, group, Number.MAX_VALUE, scope, backend)
+
+            await expect(fun).rejects.toThrow("The tree depth must be a number between")
+        })
+
         it("Should generate a Noir Semaphore proof with keccak set to true", async () => {
             const group = new Group([1n, 2n, identity.commitment])
             const backend = await initSemaphoreNoirBackend(merkleTreeDepth)

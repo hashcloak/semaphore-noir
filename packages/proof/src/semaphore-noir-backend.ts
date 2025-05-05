@@ -13,7 +13,15 @@ export type SemaphoreNoirBackend = {
 }
 
 /** It initializes and returns a SemaphoreNoirBackend
- * UltraHonkBackend is tied to a circuit. Make sure to re-initialize it when changing merkleTreeDepth
+ * UltraHonkBackend is tied to a circuit. Make sure to re-initialize it when changing merkleTreeDepth.
+ * The merkleTreeDepth of the tree determines which zero-knowledge artifacts to use to generate the proof.
+ * If unknown, use getMerkleTreeDepth() below to get the merkleTreeDepth from a Merkle proof or a group.
+ * The compiled Noir circuit can be passed directly, or the correct circuit will be fetched.
+ * @param merkleTreeDepth The depth of the tree for which the circuit was compiled
+ * @param noirCompiledCircuit The precompiled Noir circuit
+ * @param threads The number of threads to run the UltraHonk backend worker on.
+ * For node this can be os.cpus().length, for browser it can be navigator.hardwareConcurrency
+
  */
 export async function initSemaphoreNoirBackend(
     merkleTreeDepth: number,
@@ -42,7 +50,9 @@ export async function initSemaphoreNoirBackend(
 /**
  * Calculates merkleTreeDepth with a group or a merkle proof
  * This method can be used to get merkleTreeDepth before calling initSemaphoreNoirBackend,
- * of check if the merkleTreeDepth in SemaphoreNoirBackend is big enough for a merklr proof.
+ * or check if  the merkleTreeDepth in SemaphoreNoirBackend is big enough for a merklr proof.
+ * @param identity The Semaphore Identity
+ * @param groupOrMerkleProof The Semaphore group or the Merkle proof for the identity
  */
 export function getMerkleTreeDepth(identity: Identity, groupOrMerkleProof: Group | MerkleProof): number {
     requireDefined(groupOrMerkleProof, "groupOrMerkleProof")
