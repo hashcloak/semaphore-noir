@@ -6,28 +6,23 @@ import {
     requireObject,
     requireString
 } from "@zk-kit/utils/error-handlers"
-import { UltraHonkBackend } from "@aztec/bb.js"
-import { maybeGetCompiledNoirCircuit, Project } from "@zk-kit/artifacts"
-import { CompiledCircuit } from "@noir-lang/noir_js"
+import { Project, maybeGetNoirVk } from "@zk-kit/artifacts"
 import { SemaphoreNoirProof } from "./types"
 import hash from "./hash"
+import { SemaphoreNoirBackend } from "./semaphore-noir-backend"
 
 /**
- * Verifies whether a Semahpore Noir proof is valid. Depending on the value of
- * SemaphoreNoirProof.merkleTreeDepth, a different circuit is used.
- * (In practice that value either equals the depth of the tree of the Identities group,
- * or the length of the merkle proof used in the proof generation.)
+ * Verifies whether a Semahpore Noir proof is valid.
+ * Note that the correct backend.honkBackend must be used for the proof.
+ * If unsure, initialize new SemaphoreNoirBackend with proof.merkleTreeDepth.
  *
  * @param proof The Semaphore Noir proof
- * @param noirCompiledCircuit The precompiled Noir circuit
- * @param threads The number of threads to run the UltraHonk backend worker on.
- * For node this can be os.cpus().length, for browser it can be navigator.hardwareConcurrency
- * @returns
+ * @param backend The SemaphoreNoirBackend used to generate the proof
+ * @returns True if the proof is valid, false otherwise.
  */
 export default async function verifyNoirProof(
     proof: SemaphoreNoirProof,
-    noirCompiledCircuit?: CompiledCircuit,
-    threads?: number
+    backend: SemaphoreNoirBackend
 ): Promise<boolean> {
     requireDefined(proof, "proof")
     requireObject(proof, "proof")
@@ -45,21 +40,14 @@ export default async function verifyNoirProof(
         throw new TypeError(`The tree depth must be a number between ${MIN_DEPTH} and ${MAX_DEPTH}`)
     }
 
-    // If the Noir circuit has not been passed, it will be automatically downloaded.
-    // The circuit is defined by SemaphoreNoirProof.merkleTreeDepth
-    let backend: UltraHonkBackend
-    try {
-        noirCompiledCircuit ??= await maybeGetCompiledNoirCircuit(Project.SEMAPHORE_NOIR, merkleTreeDepth)
-
-        const nrThreads = threads ?? 1
-        backend = new UltraHonkBackend(noirCompiledCircuit.bytecode, { threads: nrThreads })
-    } catch (err) {
-        throw new Error(`Failed to load compiled Noir circuit: ${(err as Error).message}`)
-    }
-
     const proofData = {
         publicInputs: [hash(proof.scope), hash(proof.message), proof.merkleTreeRoot, proof.nullifier],
         proof: proof.proofBytes
     }
-    return backend.verifyProof(proofData)
+
+    const vk = await maybeGetNoirVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
+
+    const result = await backend.honkBackend.verifyProof(proofData, undefined, vk)
+
+    return result
 }
