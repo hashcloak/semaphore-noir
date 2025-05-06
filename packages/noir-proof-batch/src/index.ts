@@ -1,5 +1,6 @@
 import batchSemaphoreNoirProofs from "./batch"
-import generateNoirProofFile from "./generate-proof-noir"
+import verifyBatchProof from "./batch-verify"
+import generateNoirProofForBatching from "./generate-proof-noir"
 
 export * from "./types"
-export { batchSemaphoreNoirProofs, generateNoirProofFile }
+export { batchSemaphoreNoirProofs, generateNoirProofForBatching, verifyBatchProof }

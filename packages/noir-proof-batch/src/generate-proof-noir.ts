@@ -52,19 +52,13 @@ export function flattenFieldsAsArray(fields: string[]): Uint8Array {
 }
 
 /**
- * This generates a Semaphore Noir proof; a zero-knowledge proof that an identity that
- * is part of a group has shared an anonymous message.
+ * This generates a Semaphore Noir proof suitable for batching.
+ * Note that *only* Semaphore Noir proofs generated with this function can be batched.
+ * The "normal" generation function will not suffice.
  *
- * The message may be any arbitrary user-defined value (e.g. a vote), or the hash of that value.
- * The scope is a value used like a topic on which users can generate a valid proof only once,
- * for example the id of an election in which voters can only vote once.
- * The hash of the identity's scope and secret scalar is called a nullifier and can be
- * used to verify whether that identity has already generated a valid proof in that scope.
- * The merkleTreeDepth of the tree determines which zero-knowledge artifacts to use to generate the proof.
- * If it is not defined, the length of the Merkle proof is used to determine the circuit.
- * Finally, the compiled Noir circuit can be passed directly, or the correct circuit will be fetched.
- *
- * Please keep in mind that groups with 1 member or 2 members cannot be considered anonymous.
+ * The functionality is the same as `generateNoirProof` in `packages/proof`.
+ * The difference is that this proof is generated with bb CLI, and with the
+ * necessary flags for recursion (which is used for batching).
  *
  * @param identity The Semaphore Identity
  * @param groupOrMerkleProof The Semaphore group or the Merkle proof for the identity
@@ -76,7 +70,7 @@ export function flattenFieldsAsArray(fields: string[]): Uint8Array {
  * Note: This proof shouldn't be generated with the `keccak` flag, since it will be batched with other proofs.
  * @returns The Semaphore Noir proof ready to be verified off-chain, or batched together with other SemaphoreProofs
  */
-export default async function generateNoirProof(
+export default async function generateNoirProofForBatching(
     identity: Identity,
     groupOrMerkleProof: Group | MerkleProof,
     message: BigNumberish | Uint8Array | string,

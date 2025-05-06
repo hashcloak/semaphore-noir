@@ -5,7 +5,7 @@ import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import { mkdir } from "fs/promises"
 import path from "path"
 import { spawn } from "child_process"
-import generateNoirProof from "../src/generate-proof-noir"
+import generateNoirProofForBatching from "../src/generate-proof-noir"
 import verifyNoirProof from "../src/batch-verify"
 
 const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves")
@@ -222,7 +222,7 @@ describe("batchSemaphoreNoirProofs", () => {
             "1"
         ])
 
-        // 5. Generate proofs that can be used in the tests
+        // 4. Generate proofs that can be used in the tests
         const group = new Group()
         const identities: Identity[] = []
 
@@ -233,7 +233,7 @@ describe("batchSemaphoreNoirProofs", () => {
         }
 
         for (const identity of identities) {
-            const proof = await generateNoirProof(identity, group, message, scope, merkleTreeDepth)
+            const proof = await generateNoirProofForBatching(identity, group, message, scope, merkleTreeDepth)
             allProofs.push(proof)
         }
     }, 600_000)
@@ -254,7 +254,7 @@ describe("batchSemaphoreNoirProofs", () => {
             useBatchVkPath = true
         }: BatchTestOptions = {}
     ) =>
-        it(`batches ${nrProofs} proofs${useKeccak ? " with keccak" : ""}${!useSemVkPath ? ", no sem VK" : ""}${!useBatchVkPath ? ", no batch VK" : ""}`, async () => {
+        it(`batches ${nrProofs} proofs${useKeccak ? " with keccak" : ""}${!useSemVkPath ? ", no Semaphore VK" : ""}${!useBatchVkPath ? ", no batch VK" : ""}`, async () => {
             if (useKeccak && !useBatchVkPath) {
                 throw new Error("Keccak mode requires useBatchVkPath to be enabled.")
             }
@@ -281,12 +281,12 @@ describe("batchSemaphoreNoirProofs", () => {
             expect(verified).toBe(true)
         }, 600_000)
 
-    runBatchTest(8)
-    runBatchTest(9)
-    runBatchTest(8, { useCircuitsPaths: false })
-    runBatchTest(15, { useBatchVkPath: false })
     runBatchTest(4, { useKeccak: true })
+    runBatchTest(8)
+    runBatchTest(8, { useCircuitsPaths: false })
+    runBatchTest(9)
     runBatchTest(9, { useSemVkPath: false })
+    runBatchTest(15, { useBatchVkPath: false })
     runBatchTest(15)
     runBatchTest(16)
     runBatchTest(17)

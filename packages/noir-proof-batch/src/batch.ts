@@ -20,6 +20,8 @@ type InternalProof = {
 }
 
 // deflattenFields and uint8ArrayToHex come from barretenberg
+// https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L47
+// But they are not exported in bb.js
 const uint8ArrayToHex = (buffer: Uint8Array): string => {
     const hex: string[] = []
 
@@ -34,8 +36,7 @@ const uint8ArrayToHex = (buffer: Uint8Array): string => {
     return `0x${hex.join("")}`
 }
 
-// https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L47
-// But is not exported in bb.js
+// Converts byte array to array of (Noir) fields in hex format
 export function deflattenFields(flattenedFields: Uint8Array): string[] {
     const publicInputSize = 32
     const chunkedFlattenedPublicInputs: Uint8Array[] = []
@@ -48,6 +49,11 @@ export function deflattenFields(flattenedFields: Uint8Array): string[] {
     return chunkedFlattenedPublicInputs.map(uint8ArrayToHex)
 }
 
+/**
+ * Wrapper to run bb CLI commands
+ * @param argsArray arguments to run
+ * @returns
+ */
 async function runBB(argsArray: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
         const bbProcess = spawn("bb", argsArray, { stdio: "inherit" })
@@ -66,6 +72,20 @@ async function runBB(argsArray: string[]): Promise<void> {
     })
 }
 
+/**
+ * Recursively batches SemaphoreNoirProofs into a single proof.
+ * Note: Assumes all proofs are for the same Merkle tree depth.
+ * Any number of SemaphoreNoirProofs is supported. If the number is odd, 1 proof will be batched with itself in the first layer.
+ * In subsequent layers any node that has no sibling is promoted to the next layer (like in LeanIMT).
+ * This functionality uses recursive proofs in Noir and only works with bb cli, hence it is only available in node.
+ *
+ * @param proofs Semaphore Noir proofs that have been generated with `generateNoirProofForBatching`
+ * @param semaphoreCircuitVk (Optional) Array of fields; verification key for the Semaphore proofs for a single merkleTreeDepth
+ * @param batchLeavesCircuitPath (Optional) Path to first batching circuit (batches 2 leaves)
+ * @param batchNodesCircuitPath (Optional) Path to the second batching circuit (batched 2 nodes)
+ * @param keccak (Optional) Flag whether the final proof should be generated with keccak = true, which is needed for on-chain verification
+ * @returns The batch proof and the path to this proof locally
+ */
 export default async function batchSemaphoreNoirProofs(
     proofs: SemaphoreNoirProof[],
     semaphoreCircuitVk?: string[],
@@ -76,7 +96,7 @@ export default async function batchSemaphoreNoirProofs(
     if (proofs.length < 3) {
         throw new Error("At least three Semaphore proofs are required for batching.")
     }
-    const tempDir = path.join(os.tmpdir(), "semaphore_artifacts")
+    const tempDir = path.join(os.tmpdir(), `semaphore_artifacts_${Date.now()}`)
 
     let batchLeavesPath: string
     let batchNodesPath: string
@@ -120,6 +140,7 @@ export default async function batchSemaphoreNoirProofs(
     const vkHash = `0x${"0".repeat(64)}`
 
     // STEP 1: Generate the first layer of proofs, combining Semaphore proofs per pair
+    // If there is an odd number of proofs, the final one will be batched with itself
     const leafLayerProofs: InternalProof[] = []
     const recursion = path.join(tempDir, "recursion")
     mkdirSync(recursion, { recursive: true })
@@ -169,6 +190,7 @@ export default async function batchSemaphoreNoirProofs(
             ]
         })
         await writeFile(`${recursion}/witness_${i}.gz`, witness)
+        mkdirSync(`${recursion}/leaves_${i}`, { recursive: true })
 
         await runBB([
             "prove",
@@ -179,10 +201,10 @@ export default async function batchSemaphoreNoirProofs(
             "-w",
             `${recursion}/witness_${i}.gz`,
             "-o",
-            recursion,
+            `${recursion}/leaves_${i}`,
             "--recursive"
         ])
-        const proofFields = JSON.parse(readFileSync(`${recursion}/proof_fields.json`, "utf-8"))
+        const proofFields = JSON.parse(readFileSync(`${recursion}/leaves_${i}/proof_fields.json`, "utf-8"))
 
         leafLayerProofs.push({
             proof: {
@@ -457,7 +479,8 @@ export default async function batchSemaphoreNoirProofs(
         "0x000000000000000000000000000000000016658259e029bb766fe0d828342f9e"
     ]
 
-    // Now aggregate the proofs recursively. Starting with the leaf pairs
+    // STEP 2: Now aggregate the proofs recursively per 2. If there is an odd number of nodes,
+    // the last node is promoted to the next level.
     let currentLayerProofs: InternalProof[] = leafLayerProofs
 
     // Keep batching node layers until only 1 proof remains
@@ -467,7 +490,8 @@ export default async function batchSemaphoreNoirProofs(
         for (let i = 0; i < currentLayerProofs.length; i += 2) {
             const proof0 = currentLayerProofs[i]
             const proof1 = currentLayerProofs[i + 1]
-            // If proof1 is undefined (odd number), carry proof0 to next layer unpaired
+            // If proof1 is undefined this layer had an odd number of proofs
+            // and we promote the odd one to the next level
             if (!proof1) {
                 nextLayerProofs.push(proof0)
             } else {
@@ -486,6 +510,7 @@ export default async function batchSemaphoreNoirProofs(
                     ]
                 })
                 await writeFile(`${recursion}/witness_nodes_${layer}_${i}.gz`, witness)
+                mkdirSync(`${recursion}/node_${layer}_${i}`, { recursive: true })
 
                 const args = [
                     "prove",
@@ -496,7 +521,7 @@ export default async function batchSemaphoreNoirProofs(
                     "-w",
                     `${recursion}/witness_nodes_${layer}_${i}.gz`,
                     "-o",
-                    `${recursion}`,
+                    `${recursion}/node_${layer}_${i}`,
                     "--recursive"
                 ]
                 // When creating the last proof, check if we need to generate it with keccak flag
@@ -505,7 +530,9 @@ export default async function batchSemaphoreNoirProofs(
                     args.push("keccak")
                 }
                 await runBB(args)
-                const proofFields = JSON.parse(readFileSync(`${recursion}/proof_fields.json`, "utf-8"))
+                const proofFields = JSON.parse(
+                    readFileSync(`${recursion}/node_${layer}_${i}/proof_fields.json`, "utf-8")
+                )
 
                 nextLayerProofs.push({
                     proof: {
@@ -522,7 +549,8 @@ export default async function batchSemaphoreNoirProofs(
         layer += 1
     }
 
-    const finalProofPath = `${recursion}/proof`
+    // Return the "root" batch proof
+    const finalProofPath = `${recursion}/node_${layer - 1}_0/proof`
     const rootBatchProof = currentLayerProofs[0].proof
 
     return {
