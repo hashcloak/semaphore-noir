@@ -109,7 +109,7 @@ export default async function batchSemaphoreNoirProofs(
         batchNodesPath = nodesPath
         batchNodesNoir = new Noir(circuit)
     }
-    // We know there are at least 3 proofs and we assume they all have the same tree depth
+
     let semaphoreCircuitVkFinal: string[]
     if (!semaphoreCircuitVk) {
         semaphoreCircuitVkFinal = await maybeGetBatchSemaphoreVk(Project.SEMAPHORE_NOIR, merkleTreeDepth)
