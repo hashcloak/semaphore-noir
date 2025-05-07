@@ -94,5 +94,5 @@ typechain-types
 
 # Other
 snark-artifacts
-
+**/target
 *.zip

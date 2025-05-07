@@ -10,6 +10,8 @@ import {
 } from "@semaphore-protocol/core"
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers"
 import { expect } from "chai"
+import path from "path"
+import fs from "node:fs/promises"
 import { Signer, ZeroAddress } from "ethers"
 import { ethers, run } from "hardhat"
 // @ts-ignore
@@ -641,6 +643,35 @@ describe("Semaphore", () => {
                 semaphoreContract,
                 "Semaphore__YouAreUsingTheSameNullifierTwice"
             )
+        })
+    })
+
+    describe("# batchVerify", () => {
+        it("Should return true for a correct batch proof", async () => {
+            const batchVerifier = await ethers.deployContract("BatchHonkVerifier")
+            const proofFields = JSON.parse(
+                await fs.readFile(path.resolve(`./test/proof-files/batched_proof.json`), "utf-8")
+            ) as Array<string>
+            const publicInputs = proofFields.slice(0, 16)
+            let proofHex = "0x"
+            proofFields.slice(16).forEach((hexString) => {
+                proofHex += hexString.slice(2)
+            })
+            await expect(await batchVerifier.verify(proofHex, publicInputs)).to.be.true
+        })
+
+        it("Should return false for an incorrect batch proof", async () => {
+            const batchVerifier = await ethers.deployContract("BatchHonkVerifier")
+            const proofFields = JSON.parse(
+                await fs.readFile(path.resolve(`./test/proof-files/false_batched_proof.json`), "utf-8")
+            ) as Array<string>
+            const publicInputs = proofFields.slice(0, 16)
+            let proofHex = "0x"
+            proofFields.slice(16).forEach((hexString) => {
+                proofHex += hexString.slice(2)
+            })
+            const transaction = batchVerifier.verify(proofHex, publicInputs)
+            await expect(transaction).to.be.revertedWithCustomError(batchVerifier, "SumcheckFailed")
         })
     })
 
