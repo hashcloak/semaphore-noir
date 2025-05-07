@@ -1,19 +1,24 @@
 import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
+import { poseidon2 } from "poseidon-lite"
 import { batchSemaphoreNoirProofs } from "@semaphore-protocol/noir-proof-batch"
 import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import { mkdir } from "fs/promises"
 import path from "path"
 import { spawn } from "child_process"
 import generateNoirProofForBatching from "../src/generate-proof-noir"
-import verifyNoirProof from "../src/batch-verify"
+import verifyBatchProof from "../src/batch-verify"
+import toBigInt from "../src/to-bigint"
+import hash from "../src/hash"
+import { runBB } from "../src/batch"
 
 const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves")
 const nodesCircuitDir = path.join(__dirname, "../circuits/batch_2_nodes")
+const semCircuitDir = path.join(__dirname, "../../circuits-noir")
 
 const batchLeavesCircuitPath = path.join(leavesCircuitDir, "target/batch_2_leaves.json")
 const batchNodesCircuitPath = path.join(nodesCircuitDir, "target/batch_2_nodes.json")
-const keccakVkDir = path.join(nodesCircuitDir, "keccak")
+const keccakVkDir = path.join(nodesCircuitDir, "target/keccak")
 const defaultVkPath = path.join(nodesCircuitDir, "target/vk")
 const keccakVkPath = path.join(keccakVkDir, "vk")
 
@@ -165,7 +170,8 @@ async function runNargoCompile(circuitDir: string): Promise<void> {
         })
     })
 }
-async function runBB(argsArray: string[]): Promise<void> {
+
+async function runBBTest(argsArray: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
         const bbProcess = spawn("bb", argsArray, { stdio: "inherit" })
 
@@ -177,67 +183,67 @@ async function runBB(argsArray: string[]): Promise<void> {
     })
 }
 
+const allProofs: SemaphoreNoirProof[] = []
+const maxProofs = 17
+
+const merkleTreeDepth = 10
+const message = "Hello world"
+const scope = "Scope"
+
+beforeAll(async () => {
+    // 1. Compile the circuits using nargo
+    await runNargoCompile(leavesCircuitDir)
+    await runNargoCompile(nodesCircuitDir)
+
+    // 2. Generate default VK
+    await runBBTest([
+        "write_vk",
+        "-v",
+        "--scheme",
+        "ultra_honk",
+        "-b",
+        batchNodesCircuitPath,
+        "-o",
+        path.join(nodesCircuitDir, "target"),
+        "--honk_recursion",
+        "1"
+    ])
+
+    // 3. Generate keccak VK
+    await mkdir(keccakVkDir, { recursive: true })
+
+    await runBBTest([
+        "write_vk",
+        "-v",
+        "--scheme",
+        "ultra_honk",
+        "--oracle_hash",
+        "keccak",
+        "-b",
+        batchNodesCircuitPath,
+        "-o",
+        keccakVkDir,
+        "--honk_recursion",
+        "1"
+    ])
+
+    // 4. Generate proofs that can be used in the tests
+    const group = new Group()
+    const identities: Identity[] = []
+
+    for (let i = 0; i < maxProofs; i += 1) {
+        const identity = new Identity(`secret-${i}`)
+        identities.push(identity)
+        group.addMember(identity.commitment)
+    }
+
+    for (const identity of identities) {
+        const proof = await generateNoirProofForBatching(identity, group, message, scope, merkleTreeDepth)
+        allProofs.push(proof)
+    }
+}, 600_000)
+
 describe("batchSemaphoreNoirProofs", () => {
-    const allProofs: SemaphoreNoirProof[] = []
-    const maxProofs = 17
-
-    const merkleTreeDepth = 10
-    const message = "Hello world"
-    const scope = "Scope"
-
-    beforeAll(async () => {
-        // 1. Compile the circuits using nargo
-        await runNargoCompile(leavesCircuitDir)
-        await runNargoCompile(nodesCircuitDir)
-
-        // 2. Generate default VK
-        await runBB([
-            "write_vk",
-            "-v",
-            "--scheme",
-            "ultra_honk",
-            "-b",
-            batchNodesCircuitPath,
-            "-o",
-            path.join(nodesCircuitDir, "target"),
-            "--honk_recursion",
-            "1"
-        ])
-
-        // 3. Generate keccak VK
-        await mkdir(keccakVkDir, { recursive: true })
-
-        await runBB([
-            "write_vk",
-            "-v",
-            "--scheme",
-            "ultra_honk",
-            "--oracle_hash",
-            "keccak",
-            "-b",
-            batchNodesCircuitPath,
-            "-o",
-            keccakVkDir,
-            "--honk_recursion",
-            "1"
-        ])
-
-        // 4. Generate proofs that can be used in the tests
-        const group = new Group()
-        const identities: Identity[] = []
-
-        for (let i = 0; i < maxProofs; i += 1) {
-            const identity = new Identity(`secret-${i}`)
-            identities.push(identity)
-            group.addMember(identity.commitment)
-        }
-
-        for (const identity of identities) {
-            const proof = await generateNoirProofForBatching(identity, group, message, scope, merkleTreeDepth)
-            allProofs.push(proof)
-        }
-    }, 600_000)
-
     type BatchTestOptions = {
         useKeccak?: boolean
         useCircuitsPaths?: boolean
@@ -277,17 +283,172 @@ describe("batchSemaphoreNoirProofs", () => {
                 vkPath = defaultVkPath
             }
 
-            const verified = await verifyNoirProof(proofPath, vkPath, useKeccak)
+            const verified = await verifyBatchProof(proofPath, vkPath, useKeccak)
             expect(verified).toBe(true)
         }, 600_000)
 
+    it("Should error if proofs.length < 4", async () => {
+        await expect(() => batchSemaphoreNoirProofs(allProofs.slice(0, 3), semaphoreCircuitVk)).rejects.toThrow(
+            "At least four Semaphore proofs are required for batching."
+        )
+    })
+
+    it("Should error if proofs have different merkleTreeDepths", async () => {
+        const proofs = [...allProofs.slice(0, 3)]
+        const modified = { ...allProofs[3], merkleTreeDepth: 5 }
+        proofs.push(modified)
+
+        await expect(() => batchSemaphoreNoirProofs(proofs, semaphoreCircuitVk)).rejects.toThrow(
+            "All Semaphore proofs must have the same merkleTreeDepth."
+        )
+    })
+
+    describe("runBB", () => {
+        it("fails if bb command fails", async () => {
+            await expect(runBB(["prove", "--bad-flag"])).rejects.toThrow(/bb failed/)
+        })
+    })
+
+    runBatchTest(4)
     runBatchTest(4, { useKeccak: true })
-    runBatchTest(8)
+    runBatchTest(6, { useSemVkPath: false })
+    runBatchTest(7, { useBatchVkPath: false })
     runBatchTest(8, { useCircuitsPaths: false })
     runBatchTest(9)
-    runBatchTest(9, { useSemVkPath: false })
-    runBatchTest(15, { useBatchVkPath: false })
     runBatchTest(15)
     runBatchTest(16)
     runBatchTest(17)
+})
+
+describe("verifyBatchProof", () => {
+    it("verifies a valid proof", async () => {
+        const proofs = allProofs.slice(0, 4)
+        const { path: proofPath } = await batchSemaphoreNoirProofs(
+            proofs,
+            semaphoreCircuitVk,
+            batchLeavesCircuitPath,
+            batchNodesCircuitPath
+        )
+
+        const verified = await verifyBatchProof(proofPath, defaultVkPath)
+        expect(verified).toBe(true)
+    }, 600_000)
+
+    it("returns false with incorrect VK", async () => {
+        const proofs = allProofs.slice(0, 4)
+        const { path: proofPath } = await batchSemaphoreNoirProofs(
+            proofs,
+            semaphoreCircuitVk,
+            batchLeavesCircuitPath,
+            batchNodesCircuitPath
+        )
+
+        const verified = await verifyBatchProof(proofPath, keccakVkPath) // wrong vk for this proof
+        expect(verified).toBe(false)
+    }, 600_000)
+})
+
+describe("generateNoirProofForBatching", () => {
+    const identity = new Identity("test-secret")
+    const group = new Group([1n, 2n, identity.commitment])
+    const depth = 10
+    const msg = "Hello world"
+
+    it("Should generate a valid proof with default circuit path", async () => {
+        const proof = await generateNoirProofForBatching(identity, group, msg, scope, depth)
+
+        const expectedNullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
+
+        expect(typeof proof).toBe("object")
+        expect(proof.merkleTreeDepth).toBe(depth)
+        expect(proof.merkleTreeRoot).toBe(group.root.toString())
+        expect(BigInt(proof.nullifier)).toBe(expectedNullifier)
+        expect(proof.message).toBe(toBigInt(msg).toString())
+        expect(proof.scope).toBe(toBigInt(scope).toString())
+        expect(proof.proofBytes).toBeInstanceOf(Uint8Array)
+    }, 80000)
+
+    it("Should generate a valid proof with passed on circuit path", async () => {
+        await runNargoCompile(semCircuitDir)
+        const merkleProof = group.generateMerkleProof(2)
+        merkleProof.siblings = [...merkleProof.siblings, ...Array(10 - merkleProof.siblings.length).fill(0n)]
+
+        const proof = await generateNoirProofForBatching(
+            identity,
+            merkleProof,
+            msg,
+            scope,
+            undefined,
+            `${semCircuitDir}/target/circuit.json`
+        )
+        const expectedNullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
+
+        expect(typeof proof).toBe("object")
+        expect(proof.message).toBe(toBigInt(msg).toString())
+        expect(proof.scope).toBe(toBigInt(scope).toString())
+        expect(BigInt(proof.nullifier)).toBe(expectedNullifier)
+    }, 80000)
+
+    it("Should generate a valid proof if circuit path is not provided", async () => {
+        const proof = await generateNoirProofForBatching(identity, group, msg, scope)
+        const expectedNullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
+
+        expect(typeof proof).toBe("object")
+        expect(proof.message).toBe(toBigInt(msg).toString())
+        expect(proof.scope).toBe(toBigInt(scope).toString())
+        expect(BigInt(proof.nullifier)).toBe(expectedNullifier)
+    }, 80000)
+
+    it("Should Error if instantiating Noir fails because of invalid circuit", async () => {
+        await runNargoCompile(semCircuitDir)
+
+        await expect(
+            generateNoirProofForBatching(identity, group, msg, scope, undefined, `${semCircuitDir}`)
+        ).rejects.toThrow("Failed to instantiate Noir")
+    }, 80000)
+
+    it("Should generate a valid proof when passing a Merkle proof instead of a group", async () => {
+        const proof = await generateNoirProofForBatching(identity, group.generateMerkleProof(2), msg, scope)
+        const expectedNullifier = poseidon2([hash(toBigInt(scope)), identity.secretScalar])
+
+        expect(typeof proof).toBe("object")
+        expect(proof.message).toBe(toBigInt(msg).toString())
+        expect(proof.scope).toBe(toBigInt(scope).toString())
+        expect(BigInt(proof.nullifier)).toBe(expectedNullifier)
+    }, 80000)
+
+    it("Should error if identity is not in the group", async () => {
+        const outsider = new Identity("outsider")
+        const newGroup = new Group()
+        newGroup.addMember(new Identity("someone-else").commitment)
+
+        await expect(generateNoirProofForBatching(outsider, newGroup, msg, scope, depth)).rejects.toThrow(
+            "does not exist"
+        )
+    }, 80000)
+
+    it("Should error if merkleTreeDepth is out of bounds", async () => {
+        await expect(generateNoirProofForBatching(identity, group, msg, scope, 999)).rejects.toThrow(
+            "tree depth must be a number between"
+        )
+    }, 80000)
+
+    it("Should default to merkleTreeDepth = 1 if Merkle proof has length 0", async () => {
+        const singleMemberGroup = new Group([identity.commitment])
+        const merkleProof = singleMemberGroup.generateMerkleProof(0)
+
+        expect(merkleProof.siblings).toHaveLength(0)
+
+        const proof = await generateNoirProofForBatching(identity, merkleProof, msg, scope)
+
+        expect(proof.merkleTreeDepth).toBe(1)
+    })
+})
+
+describe("toBigInt", () => {
+    it("throws TypeError for invalid non-string input", () => {
+        const invalidValue = { not: "convertible" }
+
+        expect(() => toBigInt(invalidValue as any)).toThrow(TypeError)
+    })
 })

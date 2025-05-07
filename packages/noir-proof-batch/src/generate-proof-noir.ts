@@ -10,46 +10,10 @@ import path from "path"
 import fs from "fs"
 import os from "os"
 import { writeFile, mkdir } from "fs/promises"
-import { spawn } from "child_process"
 import hash from "./hash"
 import toBigInt from "./to-bigint"
-
-// Functionality from https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts#L59
-// That is not exported in their module
-function hexToUint8Array(hex: string): Uint8Array {
-    const sanitisedHex = BigInt(hex).toString(16).padStart(64, "0")
-
-    const len = sanitisedHex.length / 2
-    const u8 = new Uint8Array(len)
-
-    let i = 0
-    let j = 0
-    while (i < len) {
-        u8[i] = parseInt(sanitisedHex.slice(j, j + 2), 16)
-        i += 1
-        j += 2
-    }
-
-    return u8
-}
-
-function flattenUint8Arrays(arrays: Uint8Array[]): Uint8Array {
-    const totalLength = arrays.reduce((acc, val) => acc + val.length, 0)
-    const result = new Uint8Array(totalLength)
-
-    let offset = 0
-    for (const arr of arrays) {
-        result.set(arr, offset)
-        offset += arr.length
-    }
-
-    return result
-}
-
-export function flattenFieldsAsArray(fields: string[]): Uint8Array {
-    const flattenedPublicInputs = fields.map(hexToUint8Array)
-    return flattenUint8Arrays(flattenedPublicInputs)
-}
+import { flattenFieldsAsArray } from "./from-bbjs"
+import { runBB } from "./batch"
 
 /**
  * This generates a Semaphore Noir proof suitable for batching.
@@ -194,20 +158,7 @@ export default async function generateNoirProofForBatching(
         "--init_kzg_accumulator"
     ]
 
-    const bbProcess = spawn("bb", args)
-    bbProcess.on("error", (err) => {
-        throw new Error(`Failed to start process: ${err.message}`)
-    })
-
-    await new Promise((resolve, reject) => {
-        bbProcess.on("close", (code: number) => {
-            if (code === 0) {
-                resolve(0)
-            } else {
-                reject(new Error(`Process exited with code ${code}`))
-            }
-        })
-    })
+    await runBB(args)
 
     // Read out the proof data and return
     // In the Semaphore circuit we have 4 public inputs
