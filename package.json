@@ -18,6 +18,7 @@
         "test:library": "jest packages/${0}",
         "test:subgraph": "yarn workspace semaphore-subgraph test",
         "test:contracts": "yarn workspace semaphore-contracts test:coverage",
+        "test:contracts-noir": "yarn workspace semaphore-contracts-noir test:coverage",
         "test:circuits": "yarn workspace @semaphore-protocol/circuits test",
         "test:circuits-noir": "jest packages/circuits-noir --forceExit; cd ./packages/circuits-noir && nargo test",
         "lint": "concurrently -c auto -g -n eslint,solhint \"eslint . --ext .js,.ts,.tsx\" \"yarn workspace semaphore-contracts lint\"",
@@ -49,7 +50,8 @@
     "workspaces": [
         "apps/*",
         "packages/*",
-        "packages/contracts/contracts"
+        "packages/contracts/contracts",
+        "packages/contracts-noir/contracts"
     ],
     "packageManager": "yarn@4.1.0",
     "devDependencies": {
