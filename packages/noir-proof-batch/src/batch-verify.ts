@@ -6,7 +6,7 @@ import { Project, maybeGetBatchVkPath } from "@zk-kit/artifacts"
  *
  * @param proofPath Path to BatchProof
  * @param vkPath (Optional) Path to verification key. If verifying with keccak = true, this vk must have also been generated with the flag
- * @param keccak Whether verification should take the keccak flag into account
+ * @param keccak (Optional) Whether verification should take the keccak flag into account
  * @returns whether the batch proof is valid or not
  */
 export default async function verifyBatchProof(proofPath: string, vkPath?: string, keccak?: boolean): Promise<boolean> {

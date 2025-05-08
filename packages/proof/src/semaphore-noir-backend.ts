@@ -50,7 +50,7 @@ export async function initSemaphoreNoirBackend(
 /**
  * Calculates merkleTreeDepth with a group or a merkle proof
  * This method can be used to get merkleTreeDepth before calling initSemaphoreNoirBackend,
- * or check if  the merkleTreeDepth in SemaphoreNoirBackend is big enough for a merklr proof.
+ * or check if the merkleTreeDepth in SemaphoreNoirBackend is big enough for a merkle proof.
  * @param identity The Semaphore Identity
  * @param groupOrMerkleProof The Semaphore group or the Merkle proof for the identity
  */

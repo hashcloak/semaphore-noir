@@ -48,7 +48,7 @@ export async function runBB(argsArray: string[]): Promise<void> {
 
 /**
  * Recursively batches SemaphoreNoirProofs into a single proof.
- * Note: Assumes all proofs are for the same Merkle tree depth.
+ * Note: all Semaphore proofs should have the same Merkle tree depth.
  * Any number of SemaphoreNoirProofs is supported. If the number is odd, 1 proof will be batched with itself in the first layer.
  * In subsequent layers any node that has no sibling is promoted to the next layer (like in LeanIMT).
  * This functionality uses recursive proofs in Noir and only works with bb cli, hence it is only available in node.
@@ -67,8 +67,8 @@ export default async function batchSemaphoreNoirProofs(
     batchNodesCircuitPath?: string,
     keccak?: boolean
 ): Promise<{ proof: NoirBatchProof; path: string }> {
-    if (proofs.length < 4) {
-        throw new Error("At least four Semaphore proofs are required for batching.")
+    if (proofs.length < 3) {
+        throw new Error("At least three Semaphore proofs are required for batching.")
     }
     // Check that all proofs have the same merkleTreeDepth
     const { merkleTreeDepth } = proofs[0]
@@ -77,6 +77,7 @@ export default async function batchSemaphoreNoirProofs(
             throw new Error("All Semaphore proofs must have the same merkleTreeDepth.")
         }
     }
+    // Intermediate files must be stored locally for bb CLI to process them
     const tempDir = path.join(os.tmpdir(), `semaphore_artifacts_${Date.now()}`)
 
     let batchLeavesPath: string
@@ -195,7 +196,7 @@ export default async function batchSemaphoreNoirProofs(
         })
     }
 
-    // STEP 2: Now aggregate the proofs recursively per 2. If there is an odd number of nodes,
+    // STEP 2: Batch the proofs recursively per 2. If there is an odd number of nodes,
     // the last node is promoted to the next level.
     let currentLayerProofs: InternalProof[] = leafLayerProofs
 

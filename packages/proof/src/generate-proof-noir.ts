@@ -108,10 +108,11 @@ export default async function generateNoirProof(
     // Generate proof, for verification on-chain with keccak, with poseidon otherwise
     // (This considers the hash that will be used in creating the proof, not the hash used within the circuit)
     let proofData
+    const numPublicInputs = 4
     if (keccak) {
-        proofData = await backend.honkBackend.generateProof(witness, { keccak }, 4)
+        proofData = await backend.honkBackend.generateProof(witness, { keccak }, numPublicInputs)
     } else {
-        proofData = await backend.honkBackend.generateProof(witness, undefined, 4)
+        proofData = await backend.honkBackend.generateProof(witness, undefined, numPublicInputs)
     }
     // The proofData.publicInputs consists of: [merkleTreeRoot, hashedScope, hashedMessage, nullifier]
     // Return the data as a SemaphoreNoirProof

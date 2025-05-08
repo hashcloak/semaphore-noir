@@ -287,9 +287,9 @@ describe("batchSemaphoreNoirProofs", () => {
             expect(verified).toBe(true)
         }, 600_000)
 
-    it("Should error if proofs.length < 4", async () => {
-        await expect(() => batchSemaphoreNoirProofs(allProofs.slice(0, 3), semaphoreCircuitVk)).rejects.toThrow(
-            "At least four Semaphore proofs are required for batching."
+    it("Should error if proofs.length < 3", async () => {
+        await expect(() => batchSemaphoreNoirProofs(allProofs.slice(0, 2), semaphoreCircuitVk)).rejects.toThrow(
+            "At least three Semaphore proofs are required for batching."
         )
     })
 

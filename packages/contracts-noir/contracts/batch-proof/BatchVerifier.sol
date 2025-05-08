@@ -2,8 +2,8 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.21;
 
-// TODO - how do we incorporate this in the Semaphore contract
-// TODO - currently roots and nullifiers in a batched proof cannot be checked
+// TODO - add the roots & nullifier checks, when the circuits & sdk have been updated
+// TODO - add a new function to Semaphore Noir contract to validate batch proof
 uint256 constant N = 2097152;
 uint256 constant LOG_N = 21;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 16;
