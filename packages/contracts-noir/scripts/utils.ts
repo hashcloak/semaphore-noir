@@ -4,7 +4,13 @@ import { FactoryOptions } from "hardhat/types"
 
 // TODO - add the libraries in contracts/base
 export type NetworkDeployedContracts = {
-    name: "SemaphoreNoir" | "SemaphoreNoirVerifier" | "PoseidonT3"
+    name:
+        | "SemaphoreNoir"
+        | "SemaphoreNoirVerifier"
+        | "PoseidonT3"
+        | "SemaphoreNoirVerifierKeyPts1"
+        | "SemaphoreNoirVerifierKeyPts2"
+        | "HonkVerificationKey"
     address: string
     startBlock: number
 }[]
@@ -14,7 +20,7 @@ export type DeployedContracts = {
     contracts: NetworkDeployedContracts
 }[]
 
-const deployedContractsPath = "../utils/src/networks/deployed-contracts.json"
+const deployedContractsPath = "../utils/src/networks/deployed-contracts-noir.json"
 
 /**
  * Deploys contracts using a deterministic deployment proxy if
@@ -45,11 +51,11 @@ export async function deploy(
         // If the contract has a constructor with arguments, they should be added to the bytecode/initcode.
         const encodedArgs = args ? abi.encodeDeploy(args).slice(2) : ""
 
-        await signer.sendTransaction({
+        const tx = await signer.sendTransaction({
             to: proxyAddress,
             data: `${salt}${bytecode.replace("0x", "")}${encodedArgs}`
         })
-
+        await tx.wait()
         // Contract addresses can be calculated deterministically.
         return ethers.getCreate2Address(proxyAddress, salt, ethers.keccak256(bytecode + encodedArgs))
     }
