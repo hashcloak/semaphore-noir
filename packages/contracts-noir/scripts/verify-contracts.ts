@@ -13,7 +13,6 @@ async function verify(address: string, constructorArguments?: any[]): Promise<vo
     }
 }
 
-// TODO - verify the libraries in contracts/base
 async function main() {
     const { network } = hardhatArguments
 
