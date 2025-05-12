@@ -28,6 +28,15 @@ interface ISemaphore {
         bytes proofBytes;
     }
 
+    struct SemaphoreNoirBatchedProof {
+        uint256[] nullifiers;
+        uint256[] merkleTreeRoots;
+        uint256[] scopes;
+        uint256[] messages;
+        uint256 nullifiersRootsHash;
+        bytes proofBytes;
+    }
+
     /// @dev Event emitted when the Merkle tree duration of a group is updated.
     /// @param groupId: Id of the group.
     /// @param oldMerkleTreeDuration: Old Merkle tree duration of the group.
@@ -53,6 +62,22 @@ interface ISemaphore {
         uint256 nullifier,
         uint256 message,
         uint256 indexed scope,
+        bytes proof
+    );
+
+    /// @dev Event emitted when a Batched Semaphore proof is validated.
+    /// @param groupIds: Id of the group for each proof in a batch.
+    /// @param merkleTreeRoots: Root of the Merkle tree for each proof in a batch.
+    /// @param nullifiers: Nullifier for each proof in a batch.
+    /// @param messages: Semaphore message for each proof in a batch.
+    /// @param scopes: Scope for each proof in a batch.
+    /// @param proof: Batched zero-knowledge proofs.
+    event BatchedProofValidated(
+        uint256[] indexed groupIds,
+        uint256[] indexed merkleTreeRoots,
+        uint256[] nullifiers,
+        uint256[] messages,
+        uint256[] indexed scopes,
         bytes proof
     );
 

@@ -1378,19 +1378,20 @@ abstract contract BaseHonkVerifier is IVerifier {
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 440;
 
-    function loadVerificationKey(uint256 merkleTreeDepth) internal virtual returns (VerificationKey memory);
+    function loadVerificationKey(uint256 merkleTreeDepth, bool batch) internal virtual returns (VerificationKey memory);
 
     function verify(
         bytes calldata proof,
         bytes32[] calldata publicInputs,
-        uint256 merkleTreeDepth
+        uint256 merkleTreeDepth,
+        bool batch
     ) public override returns (bool) {
         // Check the received proof is the expected size where each field element is 32 bytes
         if (proof.length != PROOF_SIZE * 32) {
             revert ProofLengthWrong();
         }
 
-        VerificationKey memory vk = loadVerificationKey(merkleTreeDepth);
+        VerificationKey memory vk = loadVerificationKey(merkleTreeDepth, batch);
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
         if (publicInputs.length != vk.publicInputsSize) {
@@ -1749,8 +1750,13 @@ contract SemaphoreNoirVerifier is BaseHonkVerifier {
     }
 
     function loadVerificationKey(
-        uint256 merkleTreeDepth
+        uint256 merkleTreeDepth,
+        bool batch
     ) internal pure override returns (VerificationKey memory honkVk) {
-        honkVk = HonkVerificationKey.loadVerificationKey(merkleTreeDepth);
+        if (batch) {
+            honkVk = HonkVerificationKey.loadBatchingKey();
+        } else {
+            honkVk = HonkVerificationKey.loadVerificationKey(merkleTreeDepth);
+        }
     }
 }

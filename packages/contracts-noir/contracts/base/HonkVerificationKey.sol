@@ -120,6 +120,123 @@ library HonkVerificationKey {
         return vk;
     }
 
+    function loadBatchingKey() external pure returns (VerificationKey memory) {
+        VerificationKey memory vk = VerificationKey({
+            circuitSize: uint256(2097152),
+            logCircuitSize: uint256(21),
+            publicInputsSize: uint256(16),
+            ql: G1Point({
+                x: uint256(0x224dffa2aaeaedc6b6149fa7a4cb2d2db4b48aa7aebcf12a4eff376ca91907e7),
+                y: uint256(0x04cb894b27e063af560b46c25aa713da6e92ce2205843e532b31c3346d748b33)
+            }),
+            qr: G1Point({
+                x: uint256(0x0a9a3d8a12af2e2b80e73f7b4fb1a2b76ac3dd8f68ad0138d95e5bd666877d0c),
+                y: uint256(0x1065db107324d016164ccdd9a9372841493046ff7a4d6d8fcbf8208e4eb2233a)
+            }),
+            qo: G1Point({
+                x: uint256(0x1b247d3663a44c03704ea7e08f608e46bf3ee4402294368f6b5336044336ddf3),
+                y: uint256(0x0935ba6c9da3223fa5cb39217ce0650ca97c4255791a0c1dad0ff4eba3440bb3)
+            }),
+            q4: G1Point({
+                x: uint256(0x0b542cc196cc8b0eb8b86042ea807fafcd68c0b0e3097570bd9ab388244628b5),
+                y: uint256(0x0fd19ff666baf07b4e749b472f7b7517f1f77ab3edcf7902cb5260f5dfe22952)
+            }),
+            qm: G1Point({
+                x: uint256(0x05db220d982083e5d8fbb5964ab426853793114cc97784c0662f7fb49093b15a),
+                y: uint256(0x25c91f18c4d5a4e1b44eac89a8373a41efd0de6aff4ff3c7895cb7101c7a31a1)
+            }),
+            qc: G1Point({
+                x: uint256(0x212e0cf40c1e663429ad834887b6bc6cdcb45f8e2fc34ad9a8dbb2c2088acca4),
+                y: uint256(0x15baba9110cd7bf6157e312b20343721a19734b786b054f8b7798fe84075052e)
+            }),
+            qArith: G1Point({
+                x: uint256(0x212f1f6c8a813551f1e52ec48c11ec3f3b0fca9997b0581d08bea04ddc0752e0),
+                y: uint256(0x0f637990bdbd5adbd912afd325ab847b6fbb3d28ff034c91c1e68a7eac726185)
+            }),
+            qDeltaRange: G1Point({
+                x: uint256(0x2dd763eabd10d073f4b249f0ac9f69796ee4dcfaac96d5a23126decc7912a0d0),
+                y: uint256(0x24f49b460ae83eee1d323044f1ca9ffc4c964e1df2e7329b832525e379351d8a)
+            }),
+            qElliptic: G1Point({
+                x: uint256(0x28054cb80059e066f2f4efa92071cd0f2f33f7d03d31143e9565c827c5586ca8),
+                y: uint256(0x10e11931417ce0a6612890b8ee982beebf6061224abe73ddcf1207efe2ce49e1)
+            }),
+            qAux: G1Point({
+                x: uint256(0x2d23ee42c21be324ec226f9c7a84fdd0ac32ebd9a08132a26175aa89a8f7e639),
+                y: uint256(0x2db48d08acdceae4beb0df6ffac301c84f9e50b6b3b146333bffbbdd880cf7b6)
+            }),
+            qLookup: G1Point({
+                x: uint256(0x17c6d9d50e48678a2ac344538de4c7ece661d9ddf8d6ce71e63ee377b120f70f),
+                y: uint256(0x19c51b736e4c5a7d8380246160d19aad54bcdd8f21bebc775e9dfb36b9a73d45)
+            }),
+            qPoseidon2External: G1Point({
+                x: uint256(0x137a790e4e5fc4e6e3e2c2915904989f85538bd81adcf3a21d179c351cd34ccc),
+                y: uint256(0x0a6b574aa29f7771b627bd5a5c2b78925336e705dd8a85153954b7f7992a8a0c)
+            }),
+            qPoseidon2Internal: G1Point({
+                x: uint256(0x286835edb3d8659f60690e4b4b44c4fa3e2c735c34d138fe59cbbf7836431d97),
+                y: uint256(0x1525b6fba23e02e5e78e1f41b028aeada5a7ad87f2e52ff76a305a2bf0790a70)
+            }),
+            s1: G1Point({
+                x: uint256(0x010843239d7b7a2e9c66625f2913feb13e818265bad80a923ca0eaf38161467f),
+                y: uint256(0x141ce316b7ca52edd89b46aae19ffefe70ed9011f8bc88590eaa4f5158a4ee57)
+            }),
+            s2: G1Point({
+                x: uint256(0x21723f776efeb964ff91ac76e63c4b79b8a22dd373d4848de905c1dd528320ba),
+                y: uint256(0x1930025d49aa27db7b52aad16d9c307d3ec2c8ab38ce9e53252c9bf3c6266305)
+            }),
+            s3: G1Point({
+                x: uint256(0x0248ab05faae9973fa1717292832ad458657ae33a7da34c092c3837ebd0014d0),
+                y: uint256(0x2e3b09e1da086a912a286a4c6a4dff1c43e9a2129968d95fb701d316fc1e7767)
+            }),
+            s4: G1Point({
+                x: uint256(0x2acb44e717fff904dc65845d6571bb9d03ae2f9e8f5741b54398002d36f628be),
+                y: uint256(0x17914e40c463428fa4e860bdf2be5a36d9aac2a8abda95dc86934cbdae4edf77)
+            }),
+            t1: G1Point({
+                x: uint256(0x1f1156b93b4396e0dac3bd312fdc94243cf3e0cfba606d27d5999f4927ff92b3),
+                y: uint256(0x116a7935196d39ea9178a285c53a6b419d9961d76a65ed28914ca5cc3ffd2433)
+            }),
+            t2: G1Point({
+                x: uint256(0x23aebc5efc1d0e6d03030b242308fdf369409c76a0245d4f389193b554c30065),
+                y: uint256(0x19f38f8e7cf18f375d75db06fca92a0cbfc1214af084c189478e34dc04c77419)
+            }),
+            t3: G1Point({
+                x: uint256(0x15642d62fc17d119ba4afb77ab424e0a771b5bbb501c75790a1a4e2906931045),
+                y: uint256(0x21cea98314ec6efc5f8f1f648f42a7a5c1396036397af54a729801cc1c37d4e2)
+            }),
+            t4: G1Point({
+                x: uint256(0x1f3bd0ebf0709ac30745d0dafb183cdd5b4a42e59fe1e447cad24659049d13a7),
+                y: uint256(0x05900180ddd1cec6e340c70c9bff6f16c2efd51d298fee5fce4355fc26890195)
+            }),
+            id1: G1Point({
+                x: uint256(0x111337dbd2c760ab3c16b736c3e0963fcab131869553ab7269019a852a6e19d5),
+                y: uint256(0x0d8f188d46d4662c6e450723693dabd05cf70547518af7295c0b1665734363c6)
+            }),
+            id2: G1Point({
+                x: uint256(0x109474fbac03e39a12123247d537b5b2f67a8ab2d56c649c23ead379cae6701a),
+                y: uint256(0x03bb08f5ad597bcc784d8866cebfda656225dbea2977aeaaf8a580fbe3535f83)
+            }),
+            id3: G1Point({
+                x: uint256(0x09bb85ad242bfd649cede6fd276c495c71ae752a6849552b1cfa147243cf4bb3),
+                y: uint256(0x063a3fef5f97c2b4291837fb473d6ed4f0f8d94462a97dd586a70b32aa12bc51)
+            }),
+            id4: G1Point({
+                x: uint256(0x2ab7067253088d36c661bd99c9bd367b53f89c7f953bcc775e2bc18209dc9679),
+                y: uint256(0x06f57a8492c43a8ab8d61b828e00010fe074d48f6c99836c769fe43d8ac16fd6)
+            }),
+            lagrangeFirst: G1Point({
+                x: uint256(0x0000000000000000000000000000000000000000000000000000000000000001),
+                y: uint256(0x0000000000000000000000000000000000000000000000000000000000000002)
+            }),
+            lagrangeLast: G1Point({
+                x: uint256(0x007280c5169a0e1f859a500138817ec4b6fb9150ed11685a09038ea35070642d),
+                y: uint256(0x16658259e029bb766fe0d828342f9ef7151c97526c14e4531a6b1778adccedf5)
+            })
+        });
+        return vk;
+    }
+
     // returning circuit size N and logN based on merkle tree depth
     function getNAndLogN(uint256 merkleTreeDepth) internal pure returns (uint256, uint256) {
         if (merkleTreeDepth < 2) {

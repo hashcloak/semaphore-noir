@@ -181,7 +181,48 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         publicInput[2] = bytes32(proof.merkleTreeRoot);
         publicInput[3] = bytes32(proof.nullifier);
 
-        return verifier.verify(proof.proofBytes, publicInput, proof.merkleTreeDepth);
+        return verifier.verify(proof.proofBytes, publicInput, proof.merkleTreeDepth, false);
+    }
+
+    function validateBatchedProof(
+        uint256[] calldata groupIds,
+        SemaphoreNoirBatchedProof calldata proof
+    ) public onlyExistingGroups(groupIds) returns (bool) {
+        // The function will revert if the nullifier that is part of the proof,
+        // was already used inside the group with id groupId.
+        for (uint256 i = 0; i < groupIds.length; i++) {
+            if (groups[groupIds[i]].nullifiers[proof.nullifiers[i]]) {
+                revert Semaphore__YouAreUsingTheSameNullifierTwice();
+            }
+        }
+
+        // The function will revert if the proof is not verified successfully.
+        if (!verifyBatchedProof(groupIds, proof)) {
+            revert Semaphore__InvalidProof();
+        }
+
+        // Saves the nullifier so that it cannot be used again to successfully verify a proof
+        // that is part of the group with id groupId.
+        for (uint256 i = 0; i < groupIds.length; i++) {
+            groups[groupIds[i]].nullifiers[proof.nullifiers[i]] = true;
+        }
+
+        emit BatchedProofValidated(
+            groupIds,
+            proof.merkleTreeRoots,
+            proof.nullifiers,
+            proof.messages,
+            proof.scopes,
+            proof.proofBytes
+        );
+        return true;
+    }
+
+    function verifyBatchedProof(
+        uint256[] calldata groupIds,
+        SemaphoreNoirBatchedProof calldata proof
+    ) public onlyExistingGroups(groupIds) returns (bool) {
+        return true;
     }
 
     /// @dev Creates a keccak256 hash of a message compatible with the SNARK scalar modulus.
