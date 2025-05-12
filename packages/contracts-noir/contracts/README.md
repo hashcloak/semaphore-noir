@@ -49,13 +49,13 @@ To learn more about contracts visit [semaphore.pse.dev](https://docs.semaphore.p
 You can install the semaphore protocol contracts with any node package manager (`bun`, `npm`, `pnpm`,`yarn`) or the solidity package manager [`soldeer`](https://soldeer.xyz).
 
 ```commandline
-bun add @semaphore-protocol/contracts
-npm i @semaphore-protocol/contracts
-pnpm add @semaphore-protocol/contracts
-yarn add @semaphore-protocol/contracts
+bun add @semaphore-protocol/contracts-noir
+npm i @semaphore-protocol/contracts-noir
+pnpm add @semaphore-protocol/contracts-noir
+yarn add @semaphore-protocol/contracts-noir
 
 # for soldeer, an explicit version is required, e.g:
-soldeer install semaphore-protocol-contracts~4.6.0
+soldeer install semaphore-protocol-contracts-noir~4.6.0
 ```
 
 ## 📜 Usage
@@ -90,7 +90,7 @@ yarn test:report-gas
 
 ### Deploy contracts
 
-Deploy the `Semaphore.sol` contract without any parameter:
+Deploy the `SemaphoreNoir.sol` contract without any parameter:
 
 ```bash
 yarn deploy

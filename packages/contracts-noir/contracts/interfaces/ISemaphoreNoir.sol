@@ -18,7 +18,7 @@ interface ISemaphore {
     }
 
     /// It defines all the Semaphore proof parameters used by Semaphore.sol.
-    struct SemaphoreProof {
+    struct SemaphoreNoirProof {
         uint256 merkleTreeDepth;
         uint256 merkleProofLength;
         uint256 merkleTreeRoot;
@@ -104,10 +104,10 @@ interface ISemaphore {
     /// if the zero-knowledge proof is valid.
     /// @param groupId: Id of the group.
     /// @param proof: Semaphore zero-knowledge proof.
-    function validateProof(uint256 groupId, SemaphoreProof calldata proof) external;
+    function validateProof(uint256 groupId, SemaphoreNoirProof calldata proof) external;
 
     /// @dev Verifies a zero-knowledge proof by returning true or false.
     /// @param groupId: Id of the group.
     /// @param proof: Semaphore zero-knowledge proof.
-    function verifyProof(uint256 groupId, SemaphoreProof calldata proof) external returns (bool);
+    function verifyProof(uint256 groupId, SemaphoreNoirProof calldata proof) external returns (bool);
 }

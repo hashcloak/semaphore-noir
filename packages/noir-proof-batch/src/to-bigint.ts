@@ -2,6 +2,8 @@ import type { BigNumberish } from "ethers"
 import { encodeBytes32String } from "ethers/abi"
 import { toBigInt as _toBigInt } from "ethers/utils"
 
+// This function comes from proof package
+
 /**
  * Converts a bignumberish or a text to a bigint.
  * @param value The value to be converted to bigint.

@@ -5,15 +5,15 @@ import { deploy, saveDeployedContracts } from "../scripts/utils"
 task("deploy", "Deploy a Semaphore contract")
     .addOptionalParam<string>("verifier", "Verifier contract address", undefined, types.string)
     .addOptionalParam<string>("poseidon", "Poseidon library address", undefined, types.string)
-    .addOptionalParam<string>("honkVk", "Honk Vvrification key library address", undefined, types.string)
+    .addOptionalParam<string>("honkvk", "Honk Verification key library address", undefined, types.string)
     .addOptionalParam<string>(
-        "vkPt1",
+        "vkpt1",
         "Verification key points library address for depth <= 16",
         undefined,
         types.string
     )
     .addOptionalParam<string>(
-        "vkPt2",
+        "vkpt2",
         "Verification key points library address for depth > 16",
         undefined,
         types.string
@@ -25,9 +25,9 @@ task("deploy", "Deploy a Semaphore contract")
                 logs,
                 verifier: semaphoreNoirVerifierAddress,
                 poseidon: poseidonT3Address,
-                honkVk: honkVkAddress,
-                vkPt1: honkVkPoint1,
-                vkPt2: honkVkPoint2
+                honkvk: honkVkAddress,
+                vkpt1: honkVkPoint1,
+                vkpt2: honkVkPoint2
             },
             { ethers, hardhatArguments }
         ): Promise<any> => {
@@ -100,11 +100,26 @@ task("deploy", "Deploy a Semaphore contract")
             )
 
             if (logs) {
-                console.info(`Semaphore contract has been deployed to: ${semaphoreAddress}`)
+                console.info(`Semaphore Noir contract has been deployed to: ${semaphoreAddress}`)
             }
 
             saveDeployedContracts(
                 [
+                    {
+                        name: "SemaphoreNoirVerifierKeyPts1",
+                        address: honkVkPoint1,
+                        startBlock
+                    },
+                    {
+                        name: "SemaphoreNoirVerifierKeyPts2",
+                        address: honkVkPoint2,
+                        startBlock
+                    },
+                    {
+                        name: "HonkVerificationKey",
+                        address: honkVkAddress,
+                        startBlock
+                    },
                     {
                         name: "SemaphoreNoirVerifier",
                         address: semaphoreNoirVerifierAddress,
@@ -127,7 +142,10 @@ task("deploy", "Deploy a Semaphore contract")
             return {
                 semaphore: await ethers.getContractAt("SemaphoreNoir", semaphoreAddress),
                 verifierAddress: semaphoreNoirVerifierAddress,
-                poseidonAddress: poseidonT3Address
+                poseidonAddress: poseidonT3Address,
+                semaphoreVK1: honkVkPoint1,
+                semaphoreVK2: honkVkPoint2,
+                honkVerificationKey: honkVkAddress
             }
         }
     )

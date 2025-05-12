@@ -112,7 +112,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
     }
 
     /// @dev See {ISemaphore-validateProof}.
-    function validateProof(uint256 groupId, SemaphoreProof calldata proof) external override {
+    function validateProof(uint256 groupId, SemaphoreNoirProof calldata proof) external override {
         // The function will revert if the nullifier that is part of the proof,
         // was already used inside the group with id groupId.
         if (groups[groupId].nullifiers[proof.nullifier]) {
@@ -142,7 +142,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
     /// @dev See {ISemaphore-verifyProof}.
     function verifyProof(
         uint256 groupId,
-        SemaphoreProof calldata proof
+        SemaphoreNoirProof calldata proof
     ) public override onlyExistingGroup(groupId) returns (bool) {
         // The function will revert if the Merkle tree depth is not supported.
         if (proof.merkleTreeDepth < MIN_DEPTH || proof.merkleTreeDepth > MAX_DEPTH) {

@@ -28,8 +28,8 @@ import { runBB } from "./batch"
  * @param groupOrMerkleProof The Semaphore group or the Merkle proof for the identity
  * @param message The Semaphore message
  * @param scope The Semaphore scope
- * @param merkleTreeDepth The depth of the tree for which the circuit was compiled
- * @param circuitPath Optional path to the precompiled circuit
+ * @param merkleTreeDepth (Optional) The depth of the tree for which the circuit was compiled
+ * @param circuitPath (Optional) path to the precompiled circuit
  *
  * Note: This proof shouldn't be generated with the `keccak` flag, since it will be batched with other proofs.
  * @returns The Semaphore Noir proof ready to be verified off-chain, or batched together with other SemaphoreProofs
@@ -161,7 +161,7 @@ export default async function generateNoirProofForBatching(
     await runBB(args)
 
     // Read out the proof data and return
-    // In the Semaphore circuit we have 4 public inputs
+    // The Semaphore Noir circuit has 4 public inputs
     const publicInputsCount = 4
     const proofFields = JSON.parse(fs.readFileSync(`${tempDir}/${timestamp}/proof_fields.json`, "utf-8"))
     const publicInputs = proofFields.slice(0, publicInputsCount)
