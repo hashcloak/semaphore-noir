@@ -1378,14 +1378,17 @@ abstract contract BaseHonkVerifier is IVerifier {
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 440;
 
-    function loadVerificationKey(uint256 merkleTreeDepth, bool batch) internal virtual returns (VerificationKey memory);
+    function loadVerificationKey(
+        uint256 merkleTreeDepth,
+        bool batch
+    ) internal view virtual returns (VerificationKey memory);
 
     function verify(
         bytes calldata proof,
         bytes32[] calldata publicInputs,
         uint256 merkleTreeDepth,
         bool batch
-    ) public override returns (bool) {
+    ) public view override returns (bool) {
         // Check the received proof is the expected size where each field element is 32 bytes
         if (proof.length != PROOF_SIZE * 32) {
             revert ProofLengthWrong();

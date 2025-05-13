@@ -409,8 +409,7 @@ describe("Semaphore", () => {
 
         it("Should verify a proof for an onchain group", async () => {
             const { semaphoreContract, groupId, proof } = await loadFixture(deployVerifyProofFixture)
-            // use static call so we can retrieve the value of a non-view function
-            const validProof = await semaphoreContract.verifyProof.staticCall(groupId, proof)
+            const validProof = await semaphoreContract.verifyProof(groupId, proof)
             expect(validProof).to.equal(true)
         })
 

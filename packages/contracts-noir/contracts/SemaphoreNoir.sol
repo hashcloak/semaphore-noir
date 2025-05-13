@@ -143,7 +143,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
     function verifyProof(
         uint256 groupId,
         SemaphoreNoirProof calldata proof
-    ) public override onlyExistingGroup(groupId) returns (bool) {
+    ) public view override onlyExistingGroup(groupId) returns (bool) {
         // The function will revert if the Merkle tree depth is not supported.
         if (proof.merkleTreeDepth < MIN_DEPTH || proof.merkleTreeDepth > MAX_DEPTH) {
             revert Semaphore__MerkleTreeDepthIsNotSupported();
@@ -223,7 +223,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         uint256[] calldata groupIds,
         bytes32[] calldata publicInputs,
         SemaphoreNoirBatchedProof calldata proof
-    ) public onlyExistingGroups(groupIds) returns (bool) {
+    ) public view onlyExistingGroups(groupIds) returns (bool) {
         // create an array of hashed values of proofs
         uint256[] memory proofHashes;
         if (proof.nullifiers.length % 2 == 0) {

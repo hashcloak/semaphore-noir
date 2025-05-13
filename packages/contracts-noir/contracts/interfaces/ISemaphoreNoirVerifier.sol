@@ -8,5 +8,5 @@ interface IVerifier {
         bytes32[] calldata _publicInputs,
         uint256 merkleTreeDepth,
         bool batch
-    ) external returns (bool);
+    ) external view returns (bool);
 }
