@@ -186,18 +186,19 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
 
     function validateBatchedProof(
         uint256[] calldata groupIds,
+        bytes32[] calldata publicInputs,
         SemaphoreNoirBatchedProof calldata proof
     ) public onlyExistingGroups(groupIds) returns (bool) {
         // The function will revert if the nullifier that is part of the proof,
         // was already used inside the group with id groupId.
-        for (uint256 i = 0; i < groupIds.length; i++) {
+        for (uint256 i = 0; i < groupIds.length; ++i) {
             if (groups[groupIds[i]].nullifiers[proof.nullifiers[i]]) {
                 revert Semaphore__YouAreUsingTheSameNullifierTwice();
             }
         }
 
         // The function will revert if the proof is not verified successfully.
-        if (!verifyBatchedProof(groupIds, proof)) {
+        if (!verifyBatchedProof(groupIds, publicInputs, proof)) {
             revert Semaphore__InvalidProof();
         }
 
@@ -220,9 +221,62 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
 
     function verifyBatchedProof(
         uint256[] calldata groupIds,
+        bytes32[] calldata publicInputs,
         SemaphoreNoirBatchedProof calldata proof
     ) public onlyExistingGroups(groupIds) returns (bool) {
-        return true;
+        // create an array of hashed values of proofs
+        uint256[] memory proofHashes;
+        if (proof.nullifiers.length % 2 == 0) {
+            proofHashes = new uint256[](proof.nullifiers.length);
+        } else {
+            proofHashes = new uint256[](proof.nullifiers.length + 1);
+        }
+        // TODO - check if hashing is done the same way in circuit
+        for (uint256 i = 0; i < proof.nullifiers.length; ++i) {
+            proofHashes[i] = uint256(
+                keccak256(
+                    abi.encodePacked(proof.nullifiers[i], proof.merkleTreeRoots[i], proof.scopes[i], proof.messages[i])
+                )
+            );
+        }
+        uint256 hashLength = proofHashes.length;
+        // duplicate the last hash if the number of proofs is odd
+        if (proofHashes[hashLength - 1] == 0) {
+            proofHashes[hashLength - 1] = proofHashes[hashLength - 2];
+        }
+
+        // continue hashing pairwise to get the final hash
+        // the hashing stratigy is the same as in noir-proof-batch/src/batch.ts
+        while (hashLength > 1) {
+            // position to store the value for next level
+            // reusing proofHashes[] to save memory
+            uint256 proofHashesPos = 0;
+            for (uint256 i = 0; i < hashLength; i += 2) {
+                if (i + 1 != hashLength) {
+                    proofHashes[proofHashesPos] = uint256(
+                        keccak256(abi.encodePacked(proofHashes[i], proofHashes[i + 1]))
+                    );
+                } else {
+                    // if a single leaf is left, push it to the next level
+                    proofHashes[proofHashesPos] = proofHashes[i];
+                }
+
+                ++proofHashesPos;
+            }
+            // length for the next level
+            if (hashLength % 2 == 1) {
+                hashLength = hashLength / 2;
+                ++hashLength;
+            } else {
+                hashLength = hashLength / 2;
+            }
+        }
+
+        uint256 finalHash = proofHashes[0];
+        // TODO - check finialHash equal to the hash in publicInput
+
+        return verifier.verify(proof.proofBytes, publicInputs, 0, true);
+        // return true;
     }
 
     /// @dev Creates a keccak256 hash of a message compatible with the SNARK scalar modulus.
