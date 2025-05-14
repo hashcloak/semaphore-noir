@@ -76,7 +76,9 @@ describe("Noir proof", () => {
                     parameters: [],
                     return_type: null,
                     error_types: {}
-                }
+                },
+                debug_symbols: "test",
+                file_map: {}
             }
 
             const fun = () => initSemaphoreNoirBackend(2, dummyCircuit)
@@ -185,7 +187,9 @@ describe("Noir proof", () => {
                     parameters: [],
                     return_type: null,
                     error_types: {}
-                }
+                },
+                debug_symbols: "test",
+                file_map: {}
             }
             const fun = () => initSemaphoreNoirBackend(2, dummyCircuit)
 

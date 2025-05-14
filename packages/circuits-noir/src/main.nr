@@ -1,9 +1,10 @@
 use binary_merkle_root::binary_merkle_root;
 use ec::bjj::BabyJubJubParams;
 use ec::Curve;
+use ec::CurveTrait;
 use ec::scalar_field::ScalarField;
+use poseidon::poseidon::bn254::hash_2 as poseidon;
 use std::field::bn254::assert_lt;
-use std::hash::poseidon::bn254::hash_2 as poseidon;
 
 // The maximum depth of the Merkle Tree the inclusion proof will be coming from.
 // This value can get updated by overwriting this line.
@@ -51,6 +52,7 @@ fn main(
     // The public key is derived by multiplying the generator point with the secret key,
     // interpreted as a scalar.
     let generator: Curve<BabyJubJubParams> = Curve { x: BASE8[0], y: BASE8[1] };
+    // let generator = BabyJubJub::new(BASE8[0], BASE8[1]);
     // ScalarField is parameterised by the number of 4-bit slices it contains.
     // Since secret key is already known to be max 251 bits, there are 63 slices.
     let secret_scalar: ScalarField<63> = ScalarField::from(secret_key);
