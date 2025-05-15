@@ -1,6 +1,0 @@
-[package]
-name = "batch_2_nodes"
-type = "bin"
-authors = ["ewynx", "LYC386"]
-
-[dependencies]
