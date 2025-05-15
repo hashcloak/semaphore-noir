@@ -7,6 +7,7 @@ import {
     maybeGetBatchSemaphoreVk
 } from "@zk-kit/artifacts"
 import path from "path"
+import os from "os"
 import { mkdirSync, readFileSync } from "fs"
 import { spawn } from "child_process"
 import { readFile, writeFile } from "fs/promises"
@@ -77,8 +78,7 @@ export default async function batchSemaphoreNoirProofs(
         }
     }
     // Intermediate files must be stored locally for bb CLI to process them
-    // TODO - change it back to os.tempdir
-    const tempDir = path.join(`./`, `semaphore_artifacts_${Date.now()}`)
+    const tempDir = path.join(os.tmpdir(), `semaphore_artifacts_${Date.now()}`)
 
     let batchLeavesPath: string
     let batchNodesPath: string

@@ -311,9 +311,8 @@ describe("batchSemaphoreNoirProofs", () => {
     runBatchTest(4)
     runBatchTest(4, { useKeccak: true })
     runBatchTest(6, { useSemVkPath: false })
-    // TODO - these two tests are failing since we haven't updated snark-artifact
-    // runBatchTest(7, { useBatchVkPath: false })
-    // runBatchTest(8, { useCircuitsPaths: false })
+    runBatchTest(7, { useBatchVkPath: false })
+    runBatchTest(8, { useCircuitsPaths: false })
     runBatchTest(9)
     runBatchTest(15)
     runBatchTest(16)
