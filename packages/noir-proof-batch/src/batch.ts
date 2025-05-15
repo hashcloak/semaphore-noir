@@ -12,7 +12,7 @@ import { spawn } from "child_process"
 import { readFile, writeFile } from "fs/promises"
 import { NoirBatchProof } from "./types"
 import hash from "./hash"
-import { batch2LeavesCircuitVk, batch2NodesCircuitVk } from "./vks-new"
+import { batch2LeavesCircuitVk, batch2NodesCircuitVk } from "./vks"
 import { deflattenFields } from "./from-bbjs"
 
 type InternalProof = {

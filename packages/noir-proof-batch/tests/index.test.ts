@@ -6,14 +6,13 @@ import { mkdir } from "fs/promises"
 import path from "path"
 import { spawn } from "child_process"
 import generateNoirProofForBatching from "../src/generate-proof-noir"
-import batchSemaphoreNoirProofs from "../src/batch-new"
+import batchSemaphoreNoirProofs, { runBB } from "../src/batch"
 import verifyBatchProof from "../src/batch-verify"
 import toBigInt from "../src/to-bigint"
 import hash from "../src/hash"
-import { runBB } from "../src/batch"
 
-const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves_new")
-const nodesCircuitDir = path.join(__dirname, "../circuits/batch_2_nodes_new")
+const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves")
+const nodesCircuitDir = path.join(__dirname, "../circuits/batch_2_nodes")
 const semCircuitDir = path.join(__dirname, "../../circuits-noir")
 
 const batchLeavesCircuitPath = path.join(leavesCircuitDir, "target/batch_2_leaves.json")
