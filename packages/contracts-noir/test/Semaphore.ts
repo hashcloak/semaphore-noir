@@ -8,11 +8,12 @@ import {
     initSemaphoreNoirBackend,
     getMerkleTreeDepth
 } from "@semaphore-protocol/core"
+import { generateNoirProofForBatching, batchSemaphoreNoirProofs } from "@semaphore-protocol/noir-proof-batch"
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers"
 import { expect } from "chai"
 import path from "path"
 import fs from "node:fs/promises"
-import { Signer, ZeroAddress } from "ethers"
+import { concat, getBytes, hexlify, Signer, ZeroAddress } from "ethers"
 import { ethers, run } from "hardhat"
 // @ts-ignore
 import { Semaphore, SemaphoreNoirVerifier } from "../typechain-types"
@@ -647,17 +648,70 @@ describe("Semaphore", () => {
 
     describe("# batchVerify", () => {
         it("Should return true for a correct batch proof", async () => {
-            const batchVerifier = await ethers.deployContract("BatchHonkVerifier")
-            const proofFields = JSON.parse(
-                await fs.readFile(path.resolve(`./test/proof-files/batched_proof.json`), "utf-8")
-            ) as Array<string>
-            const publicInputs = proofFields.slice(0, 17)
-            let proofHex = "0x"
-            proofFields.slice(17).forEach((hexString) => {
-                proofHex += hexString.slice(2)
-            })
-            await expect(await batchVerifier.verify(proofHex, publicInputs)).to.be.true
-        })
+            const { semaphoreContract, accountAddresses, groupId } = await loadFixture(deploySemaphoreFixture)
+
+            const identities = Array.from({ length: 5 }, (_, i) => new Identity(i.toString()))
+            const members = identities.map(({ commitment }) => commitment)
+            const merkleTreeDepth = 10
+
+            await semaphoreContract["createGroup(address)"](accountAddresses[0])
+
+            for (const member of members) {
+                await semaphoreContract.addMember(groupId, member)
+            }
+
+            const group = new Group()
+            members.forEach((member) => group.addMember(member))
+
+            // Generate the Semaphore proofs
+            const message = 42
+            const scope = 12
+            const semProof0 = await generateNoirProofForBatching(identities[0], group, message, scope, merkleTreeDepth)
+            const semProof1 = await generateNoirProofForBatching(identities[1], group, message, scope, merkleTreeDepth)
+            const semProof2 = await generateNoirProofForBatching(identities[2], group, message, scope, merkleTreeDepth)
+            const semProof3 = await generateNoirProofForBatching(identities[3], group, message, scope, merkleTreeDepth)
+            const semProof4 = await generateNoirProofForBatching(identities[4], group, message, scope, merkleTreeDepth)
+
+            const semProofs = [semProof0, semProof1, semProof2, semProof3, semProof4]
+            // Batch the proofs together
+            const { proof: batchProof } = await batchSemaphoreNoirProofs(
+                semProofs,
+                undefined,
+                undefined,
+                undefined,
+                true
+            )
+            const nullifiers = semProofs.map(({ nullifier }) => nullifier)
+            const merkleTreeRoots = semProofs.map(({ merkleTreeRoot }) => merkleTreeRoot)
+            const scopes = semProofs.map(({ scope }) => scope)
+            const messages = semProofs.map(({ message }) => message)
+
+            const PROOF_PREFIX_LENGTH = 16
+            const proofPrefix = batchProof.proofBytes.slice(0, PROOF_PREFIX_LENGTH)
+            const proofMain = batchProof.proofBytes.slice(PROOF_PREFIX_LENGTH)
+
+            const proofBytes = hexlify(concat(proofMain.map((h) => getBytes(h))))
+            const publicInputs = [...batchProof.publicInputs, ...proofPrefix]
+
+            const batchProofForContract = {
+                nullifiers,
+                merkleTreeRoots,
+                scopes,
+                messages,
+                publicInputs,
+                proofBytes
+            }
+            const groupIds = [groupId, groupId, groupId, groupId, groupId]
+            const transaction = await semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+
+            // This check passes
+            // const batchVerifier = await ethers.deployContract("BatchHonkVerifier")
+            // await expect(await batchVerifier.verify(proofBytes, publicInputs)).to.be.true
+
+            // This fails with "SumcheckFailed"
+            await expect(transaction).to.emit(semaphoreContract, "BatchedProofValidated")
+            // .withArgs(groupIds, merkleTreeRoots, nullifiers, messages, scopes, proofBytes) TODO uncomment
+        }).timeout(120_000)
 
         it("Should return false for an incorrect batch proof", async () => {
             const batchVerifier = await ethers.deployContract("BatchHonkVerifier")

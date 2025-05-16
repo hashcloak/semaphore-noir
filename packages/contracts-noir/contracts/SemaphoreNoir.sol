@@ -198,6 +198,8 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
             }
         }
 
+        // TODO add another check that there are no duplicate nullifiers within the array
+
         // The function will revert if the proof is not verified successfully.
         if (!verifyBatchedProof(groupIds, proof)) {
             revert Semaphore__InvalidProof();
@@ -288,7 +290,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         }
 
         // continue hashing pairwise to get the final hash
-        // the hashing stratigy is the same as in noir-proof-batch/src/batch.ts
+        // the hashing strategy is the same as the batching strategy in noir-proof-batch/src/batch.ts
         uint256 hashLength = inputHashes.length;
         while (hashLength > 1) {
             // position to store the value for next level
