@@ -13,6 +13,8 @@ import {MIN_DEPTH, MAX_DEPTH} from "./base/Constants.sol";
 /// This contract also assigns each new Merkle tree generated with a new root a duration (or an expiry)
 /// within which the proofs generated with that root can be validated.
 contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
+    uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+
     IVerifier public verifier;
 
     /// @dev Gets a group id and returns the group parameters.
@@ -186,7 +188,6 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
 
     function validateBatchedProof(
         uint256[] calldata groupIds,
-        bytes32[] calldata publicInputs,
         SemaphoreNoirBatchedProof calldata proof
     ) public onlyExistingGroups(groupIds) returns (bool) {
         // The function will revert if the nullifier that is part of the proof,
@@ -198,7 +199,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         }
 
         // The function will revert if the proof is not verified successfully.
-        if (!verifyBatchedProof(groupIds, publicInputs, proof)) {
+        if (!verifyBatchedProof(groupIds, proof)) {
             revert Semaphore__InvalidProof();
         }
 
@@ -221,47 +222,89 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
 
     function verifyBatchedProof(
         uint256[] calldata groupIds,
-        bytes32[] calldata publicInputs,
         SemaphoreNoirBatchedProof calldata proof
     ) public view onlyExistingGroups(groupIds) returns (bool) {
-        // create an array of hashed values of proofs
-        uint256[] memory proofHashes;
-        if (proof.nullifiers.length % 2 == 0) {
-            proofHashes = new uint256[](proof.nullifiers.length);
+        // create an array of hashed public inputs of proofs
+        uint256[] memory inputHashes;
+        uint256 proofLength = proof.nullifiers.length;
+        if (proofLength % 2 == 0) {
+            inputHashes = new uint256[](proofLength / 2);
+            for (uint256 i = 0; i < proofLength; i += 2) {
+                inputHashes[i / 2] =
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                _hash(proof.scopes[i]),
+                                _hash(proof.scopes[i + 1]),
+                                _hash(proof.messages[i]),
+                                _hash(proof.messages[i + 1]),
+                                proof.merkleTreeRoots[i],
+                                proof.merkleTreeRoots[i + 1],
+                                proof.nullifiers[i],
+                                proof.nullifiers[i + 1]
+                            )
+                        )
+                    ) %
+                    MODULUS;
+            }
         } else {
-            proofHashes = new uint256[](proof.nullifiers.length + 1);
-        }
-        // TODO - check if hashing is done the same way in circuit
-        for (uint256 i = 0; i < proof.nullifiers.length; ++i) {
-            proofHashes[i] = uint256(
-                keccak256(
-                    abi.encodePacked(proof.nullifiers[i], proof.merkleTreeRoots[i], proof.scopes[i], proof.messages[i])
-                )
-            );
-        }
-        uint256 hashLength = proofHashes.length;
-        // duplicate the last hash if the number of proofs is odd
-        if (proofHashes[hashLength - 1] == 0) {
-            proofHashes[hashLength - 1] = proofHashes[hashLength - 2];
+            // if number of proofs is odd, duplicate the last proof
+            inputHashes = new uint256[]((proofLength + 1) / 2);
+            for (uint256 i = 0; i < proofLength - 1; i += 2) {
+                inputHashes[i / 2] =
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                _hash(proof.scopes[i]),
+                                _hash(proof.scopes[i + 1]),
+                                _hash(proof.messages[i]),
+                                _hash(proof.messages[i + 1]),
+                                proof.merkleTreeRoots[i],
+                                proof.merkleTreeRoots[i + 1],
+                                proof.nullifiers[i],
+                                proof.nullifiers[i + 1]
+                            )
+                        )
+                    ) %
+                    MODULUS;
+            }
+            // last proof
+            inputHashes[inputHashes.length - 1] =
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            _hash(proof.scopes[proofLength - 1]),
+                            _hash(proof.scopes[proofLength - 1]),
+                            _hash(proof.messages[proofLength - 1]),
+                            _hash(proof.messages[proofLength - 1]),
+                            proof.merkleTreeRoots[proofLength - 1],
+                            proof.merkleTreeRoots[proofLength - 1],
+                            proof.nullifiers[proofLength - 1],
+                            proof.nullifiers[proofLength - 1]
+                        )
+                    )
+                ) %
+                MODULUS;
         }
 
         // continue hashing pairwise to get the final hash
         // the hashing stratigy is the same as in noir-proof-batch/src/batch.ts
+        uint256 hashLength = inputHashes.length;
         while (hashLength > 1) {
             // position to store the value for next level
-            // reusing proofHashes[] to save memory
-            uint256 proofHashesPos = 0;
+            // reusing inputHashes[] to save memory
+            uint256 inputHashesPos = 0;
             for (uint256 i = 0; i < hashLength; i += 2) {
                 if (i + 1 != hashLength) {
-                    proofHashes[proofHashesPos] = uint256(
-                        keccak256(abi.encodePacked(proofHashes[i], proofHashes[i + 1]))
-                    );
+                    inputHashes[inputHashesPos] =
+                        uint256(keccak256(abi.encodePacked(inputHashes[i], inputHashes[i + 1]))) %
+                        MODULUS;
                 } else {
                     // if a single leaf is left, push it to the next level
-                    proofHashes[proofHashesPos] = proofHashes[i];
+                    inputHashes[inputHashesPos] = inputHashes[i];
                 }
 
-                ++proofHashesPos;
+                ++inputHashesPos;
             }
             // length for the next level
             if (hashLength % 2 == 1) {
@@ -272,11 +315,13 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
             }
         }
 
-        uint256 finalHash = proofHashes[0];
-        // TODO - check finialHash equal to the hash in publicInput
+        uint256 finalHash = inputHashes[0];
+        // check finialHash equal to the hash in publicInput
+        if (uint256(proof.publicInputs[0]) != finalHash) {
+            return false;
+        }
 
-        return verifier.verify(proof.proofBytes, publicInputs, 0, true);
-        // return true;
+        return verifier.verify(proof.proofBytes, proof.publicInputs, 0, true);
     }
 
     /// @dev Creates a keccak256 hash of a message compatible with the SNARK scalar modulus.

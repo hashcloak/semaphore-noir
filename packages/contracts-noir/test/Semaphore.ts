@@ -651,9 +651,9 @@ describe("Semaphore", () => {
             const proofFields = JSON.parse(
                 await fs.readFile(path.resolve(`./test/proof-files/batched_proof.json`), "utf-8")
             ) as Array<string>
-            const publicInputs = proofFields.slice(0, 16)
+            const publicInputs = proofFields.slice(0, 17)
             let proofHex = "0x"
-            proofFields.slice(16).forEach((hexString) => {
+            proofFields.slice(17).forEach((hexString) => {
                 proofHex += hexString.slice(2)
             })
             await expect(await batchVerifier.verify(proofHex, publicInputs)).to.be.true
@@ -664,9 +664,9 @@ describe("Semaphore", () => {
             const proofFields = JSON.parse(
                 await fs.readFile(path.resolve(`./test/proof-files/false_batched_proof.json`), "utf-8")
             ) as Array<string>
-            const publicInputs = proofFields.slice(0, 16)
+            const publicInputs = proofFields.slice(0, 17)
             let proofHex = "0x"
-            proofFields.slice(16).forEach((hexString) => {
+            proofFields.slice(17).forEach((hexString) => {
                 proofHex += hexString.slice(2)
             })
             const transaction = batchVerifier.verify(proofHex, publicInputs)

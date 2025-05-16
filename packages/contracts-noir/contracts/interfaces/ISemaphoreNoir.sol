@@ -28,12 +28,19 @@ interface ISemaphore {
         bytes proofBytes;
     }
 
+    /// It defines all the Semaphore proof parameters used by Semaphore.sol.
+    /// @param nullifiers: nullfiers of all the child proofs batched in this proof
+    /// @param merkleTreeRoots: merkleTreeRoots of all the child proofs batched in this proof
+    /// @param scopes: scopes of all the child proofs batched in this proof
+    /// @param messages: messages of all the child proofs batched in this proof
+    /// @param publicInputs:  publicInputs of this proof, first element is the hashing of all the above
+    /// @param proofBytes: proofBytes of this proof
     struct SemaphoreNoirBatchedProof {
         uint256[] nullifiers;
         uint256[] merkleTreeRoots;
         uint256[] scopes;
         uint256[] messages;
-        uint256 nullifiersRootsHash;
+        bytes32[] publicInputs;
         bytes proofBytes;
     }
 
