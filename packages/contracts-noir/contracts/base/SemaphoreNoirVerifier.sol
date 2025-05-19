@@ -1364,11 +1364,6 @@ library CommitmentSchemeLib {
 
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
-    uint256 immutable numPublicInputs;
-
-    constructor(uint256 _numPublicInputs) {
-        numPublicInputs = _numPublicInputs;
-    }
 
     error ProofLengthWrong();
     error PublicInputsLengthWrong();
@@ -1445,7 +1440,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < numPublicInputs; i++) {
+            for (uint256 i = 0; i < publicInputs.length; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -1748,7 +1743,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 }
 
 contract SemaphoreNoirVerifier is BaseHonkVerifier {
-    constructor() BaseHonkVerifier(NUMBER_OF_PUBLIC_INPUTS) {
+    constructor() {
         HonkVerificationKey.checkInvariant(MAX_DEPTH);
     }
 

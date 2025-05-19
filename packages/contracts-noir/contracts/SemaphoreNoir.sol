@@ -210,13 +210,12 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         for (uint256 i = 0; i < groupIds.length; i++) {
             groups[groupIds[i]].nullifiers[proof.nullifiers[i]] = true;
         }
-
         emit BatchedProofValidated(
             groupIds,
-            proof.merkleTreeRoots,
             proof.nullifiers,
             proof.messages,
             proof.scopes,
+            uint256(proof.publicInputs[0]),
             proof.proofBytes
         );
         return true;

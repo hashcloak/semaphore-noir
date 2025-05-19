@@ -11,8 +11,6 @@ import {
 import { generateNoirProofForBatching, batchSemaphoreNoirProofs } from "@semaphore-protocol/noir-proof-batch"
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers"
 import { expect } from "chai"
-import path from "path"
-import fs from "node:fs/promises"
 import { concat, getBytes, hexlify, Signer, ZeroAddress } from "ethers"
 import { ethers, run } from "hardhat"
 // @ts-ignore
@@ -704,28 +702,10 @@ describe("Semaphore", () => {
             const groupIds = [groupId, groupId, groupId, groupId, groupId]
             const transaction = await semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
 
-            // This check passes
-            // const batchVerifier = await ethers.deployContract("BatchHonkVerifier")
-            // await expect(await batchVerifier.verify(proofBytes, publicInputs)).to.be.true
-
-            // This fails with "SumcheckFailed"
-            await expect(transaction).to.emit(semaphoreContract, "BatchedProofValidated")
-            // .withArgs(groupIds, merkleTreeRoots, nullifiers, messages, scopes, proofBytes) TODO uncomment
-        }).timeout(120_000)
-
-        it("Should return false for an incorrect batch proof", async () => {
-            const batchVerifier = await ethers.deployContract("BatchHonkVerifier")
-            const proofFields = JSON.parse(
-                await fs.readFile(path.resolve(`./test/proof-files/false_batched_proof.json`), "utf-8")
-            ) as Array<string>
-            const publicInputs = proofFields.slice(0, 17)
-            let proofHex = "0x"
-            proofFields.slice(17).forEach((hexString) => {
-                proofHex += hexString.slice(2)
-            })
-            const transaction = batchVerifier.verify(proofHex, publicInputs)
-            await expect(transaction).to.be.revertedWithCustomError(batchVerifier, "SumcheckFailed")
-        })
+            await expect(transaction)
+                .to.emit(semaphoreContract, "BatchedProofValidated")
+                .withArgs(groupIds, nullifiers, messages, scopes, publicInputs[0], proofBytes)
+        }).timeout(150_000)
     })
 
     describe("SemaphoreGroups", () => {

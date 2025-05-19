@@ -74,17 +74,17 @@ interface ISemaphore {
 
     /// @dev Event emitted when a Batched Semaphore proof is validated.
     /// @param groupIds: Id of the group for each proof in a batch.
-    /// @param merkleTreeRoots: Root of the Merkle tree for each proof in a batch.
     /// @param nullifiers: Nullifier for each proof in a batch.
     /// @param messages: Semaphore message for each proof in a batch.
     /// @param scopes: Scope for each proof in a batch.
+    /// @param publicInputHash: Hash of the public inputs.
     /// @param proof: Batched zero-knowledge proofs.
     event BatchedProofValidated(
-        uint256[] indexed groupIds,
-        uint256[] indexed merkleTreeRoots,
+        uint256[] groupIds,
         uint256[] nullifiers,
         uint256[] messages,
-        uint256[] indexed scopes,
+        uint256[] scopes,
+        uint256 indexed publicInputHash,
         bytes proof
     );
 
