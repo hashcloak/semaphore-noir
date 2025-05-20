@@ -379,7 +379,6 @@ describe("Semaphore", () => {
 
             const wrongProof = {
                 merkleTreeDepth: proof.merkleTreeDepth,
-                merkleProofLength: proof.merkleProofLength,
                 merkleTreeRoot: proof.merkleTreeRoot,
                 message: proof.message,
                 nullifier: proof.nullifier,
@@ -712,7 +711,7 @@ describe("Semaphore", () => {
             }
         }
 
-        it("Should return true for a correct batch proof of an odd number of batched proofs", async () => {
+        it("Should return true for a correct batch proof of an even number of batched proofs", async () => {
             const {
                 semaphoreContract,
                 batchProofForContract,
@@ -730,7 +729,7 @@ describe("Semaphore", () => {
                 .withArgs(groupIds, nullifiers, messages, scopes, hash, proofBytes)
         }).timeout(150_000)
 
-        it("Should return true for a correct batch proof of an even number of batched proofs", async () => {
+        it("Should return true for a correct batch proof of an odd number of batched proofs", async () => {
             const {
                 semaphoreContract,
                 batchProofForContract,

@@ -20,7 +20,6 @@ interface ISemaphore {
     /// It defines all the Semaphore proof parameters used by Semaphore.sol.
     struct SemaphoreNoirProof {
         uint256 merkleTreeDepth;
-        uint256 merkleProofLength;
         uint256 merkleTreeRoot;
         uint256 nullifier;
         uint256 message;
