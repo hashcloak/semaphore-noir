@@ -190,6 +190,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         uint256[] calldata groupIds,
         SemaphoreNoirBatchedProof calldata proof
     ) public onlyExistingGroups(groupIds) returns (bool) {
+        require(proof.nullifiers.length == groupIds.length, "Mismatched groupIds and nullifiers length");
         // The function will revert if the nullifier that is part of the proof,
         // was already used inside the group with id groupId.
         for (uint256 i = 0; i < groupIds.length; ++i) {
@@ -198,7 +199,14 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
             }
         }
 
-        // TODO add another check that there are no duplicate nullifiers within the array
+        // Also revert if there are double nullifiers within this batched group
+        for (uint256 i = 0; i < proof.nullifiers.length; i++) {
+            for (uint256 j = i + 1; j < proof.nullifiers.length; j++) {
+                if (proof.nullifiers[i] == proof.nullifiers[j]) {
+                    revert Semaphore__YouAreUsingTheSameNullifierTwice();
+                }
+            }
+        }
 
         // The function will revert if the proof is not verified successfully.
         if (!verifyBatchedProof(groupIds, proof)) {

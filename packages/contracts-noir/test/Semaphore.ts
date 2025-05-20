@@ -645,7 +645,196 @@ describe("Semaphore", () => {
     })
 
     describe("# batchVerify", () => {
-        it("Should return true for a correct batch proof", async () => {
+        async function prepareBatching(nrProofs: number) {
+            const { semaphoreContract, accountAddresses, groupId, verifierAddress } =
+                await loadFixture(deploySemaphoreFixture)
+
+            const identities = Array.from({ length: nrProofs }, (_, i) => new Identity(i.toString()))
+            const members = identities.map(({ commitment }) => commitment)
+            const merkleTreeDepth = 10
+
+            await semaphoreContract["createGroup(address)"](accountAddresses[0])
+
+            for (const member of members) {
+                await semaphoreContract.addMember(groupId, member)
+            }
+
+            const group = new Group()
+            members.forEach((member) => group.addMember(member))
+
+            // Generate the Semaphore proofs
+            const message = 42
+            const scope = 12
+
+            const semProofs = []
+            for (const id of identities) {
+                semProofs.push(await generateNoirProofForBatching(id, group, message, scope, merkleTreeDepth))
+            }
+            // Batch the proofs together
+            const { proof: batchProof } = await batchSemaphoreNoirProofs(
+                semProofs,
+                undefined,
+                undefined,
+                undefined,
+                true
+            )
+            const nullifiers = semProofs.map(({ nullifier }) => nullifier)
+            const merkleTreeRoots = semProofs.map(({ merkleTreeRoot }) => merkleTreeRoot)
+            const scopes = semProofs.map(({ scope }) => scope)
+            const messages = semProofs.map(({ message }) => message)
+
+            const PROOF_PREFIX_LENGTH = 16
+            const proofPrefix = batchProof.proofBytes.slice(0, PROOF_PREFIX_LENGTH)
+            const proofMain = batchProof.proofBytes.slice(PROOF_PREFIX_LENGTH)
+
+            const proofBytes = hexlify(concat(proofMain.map((h) => getBytes(h))))
+            const publicInputs = [...batchProof.publicInputs, ...proofPrefix]
+
+            const batchProofForContract = {
+                nullifiers,
+                merkleTreeRoots,
+                scopes,
+                messages,
+                publicInputs,
+                proofBytes
+            }
+            const groupIds = identities.map(() => groupId)
+            return {
+                semaphoreContract,
+                batchProofForContract,
+                groupIds,
+                nullifiers,
+                messages,
+                scopes,
+                hash: publicInputs[0],
+                proofBytes,
+                verifierAddress
+            }
+        }
+
+        it("Should return true for a correct batch proof of an odd number of batched proofs", async () => {
+            const {
+                semaphoreContract,
+                batchProofForContract,
+                groupIds,
+                nullifiers,
+                messages,
+                scopes,
+                hash,
+                proofBytes
+            } = await prepareBatching(6)
+            const transaction = await semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+
+            await expect(transaction)
+                .to.emit(semaphoreContract, "BatchedProofValidated")
+                .withArgs(groupIds, nullifiers, messages, scopes, hash, proofBytes)
+        }).timeout(150_000)
+
+        it("Should return true for a correct batch proof of an even number of batched proofs", async () => {
+            const {
+                semaphoreContract,
+                batchProofForContract,
+                groupIds,
+                nullifiers,
+                messages,
+                scopes,
+                hash,
+                proofBytes
+            } = await prepareBatching(5)
+            const transaction = await semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+
+            await expect(transaction)
+                .to.emit(semaphoreContract, "BatchedProofValidated")
+                .withArgs(groupIds, nullifiers, messages, scopes, hash, proofBytes)
+        }).timeout(150_000)
+
+        it("Should fail if proof is invalid", async () => {
+            const { semaphoreContract, batchProofForContract, groupIds, verifierAddress } = await prepareBatching(6)
+
+            const proofBytes = "0x0000000000000000000000000000000000000000000000000000000000000042"
+            batchProofForContract.proofBytes = proofBytes
+
+            const SemaphoreNoirVerifier: SemaphoreNoirVerifier = await ethers.getContractAt(
+                "SemaphoreNoirVerifier",
+                verifierAddress
+            )
+            const transaction = semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            await expect(transaction).to.be.revertedWithCustomError(SemaphoreNoirVerifier, "ProofLengthWrong")
+        }).timeout(150_000)
+
+        it("Should fail number of groupIds and nullifiers doesn't match", async () => {
+            const { semaphoreContract, batchProofForContract, groupIds, nullifiers } = await prepareBatching(6)
+            batchProofForContract.nullifiers = nullifiers.slice(0, -1)
+            const transaction = semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            await expect(transaction).to.be.revertedWith("Mismatched groupIds and nullifiers length")
+        }).timeout(150_000)
+
+        it("Should fail if a nullifier in the batch was already used previously", async () => {
+            const { semaphoreContract, accountAddresses, groupId } = await loadFixture(deploySemaphoreFixture)
+
+            const identities = Array.from({ length: 5 }, (_, i) => new Identity(i.toString()))
+            const members = identities.map(({ commitment }) => commitment)
+            const merkleTreeDepth = 10
+
+            await semaphoreContract["createGroup(address)"](accountAddresses[0])
+
+            for (const member of members) {
+                await semaphoreContract.addMember(groupId, member)
+            }
+
+            const group = new Group()
+            members.forEach((member) => group.addMember(member))
+
+            // Generate the Semaphore proofs
+            const message = 42
+            const scope = 12
+
+            const semProofs = []
+            for (const id of identities) {
+                semProofs.push(await generateNoirProofForBatching(id, group, message, scope, merkleTreeDepth))
+            }
+            // Batch the proofs together
+            const { proof: batchProof } = await batchSemaphoreNoirProofs(
+                semProofs,
+                undefined,
+                undefined,
+                undefined,
+                true
+            )
+            const nullifiers = semProofs.map(({ nullifier }) => nullifier)
+            const merkleTreeRoots = semProofs.map(({ merkleTreeRoot }) => merkleTreeRoot)
+            const scopes = semProofs.map(({ scope }) => scope)
+            const messages = semProofs.map(({ message }) => message)
+
+            const PROOF_PREFIX_LENGTH = 16
+            const proofPrefix = batchProof.proofBytes.slice(0, PROOF_PREFIX_LENGTH)
+            const proofMain = batchProof.proofBytes.slice(PROOF_PREFIX_LENGTH)
+
+            const proofBytes = hexlify(concat(proofMain.map((h) => getBytes(h))))
+            const publicInputs = [...batchProof.publicInputs, ...proofPrefix]
+
+            const batchProofForContract = {
+                nullifiers,
+                merkleTreeRoots,
+                scopes,
+                messages,
+                publicInputs,
+                proofBytes
+            }
+            const groupIds = identities.map(() => groupId)
+
+            // Validate a "normal" Semaphore proof for identity 0 with the same message
+            // This means the nullifier that will be sent for this identity in the batch
+            // will be invalid
+            const backend = await initSemaphoreNoirBackend(merkleTreeDepth)
+            const proof = await generateNoirProof(identities[0], group, message, scope, backend, true)
+            await semaphoreContract.validateProof(groupId, proof)
+            await expect(
+                semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            ).to.be.revertedWithCustomError(semaphoreContract, "Semaphore__YouAreUsingTheSameNullifierTwice")
+        }).timeout(150_000)
+
+        it("Should fail if the same nullifier is used within the batch", async () => {
             const { semaphoreContract, accountAddresses, groupId } = await loadFixture(deploySemaphoreFixture)
 
             const identities = Array.from({ length: 5 }, (_, i) => new Identity(i.toString()))
@@ -665,12 +854,12 @@ describe("Semaphore", () => {
             const message = 42
             const scope = 12
             const semProof0 = await generateNoirProofForBatching(identities[0], group, message, scope, merkleTreeDepth)
-            const semProof1 = await generateNoirProofForBatching(identities[1], group, message, scope, merkleTreeDepth)
+            // const semProof1 = await generateNoirProofForBatching(identities[1], group, message, scope, merkleTreeDepth)
             const semProof2 = await generateNoirProofForBatching(identities[2], group, message, scope, merkleTreeDepth)
             const semProof3 = await generateNoirProofForBatching(identities[3], group, message, scope, merkleTreeDepth)
             const semProof4 = await generateNoirProofForBatching(identities[4], group, message, scope, merkleTreeDepth)
 
-            const semProofs = [semProof0, semProof1, semProof2, semProof3, semProof4]
+            const semProofs = [semProof0, semProof0, semProof2, semProof3, semProof4]
             // Batch the proofs together
             const { proof: batchProof } = await batchSemaphoreNoirProofs(
                 semProofs,
@@ -700,11 +889,67 @@ describe("Semaphore", () => {
                 proofBytes
             }
             const groupIds = [groupId, groupId, groupId, groupId, groupId]
-            const transaction = await semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            await expect(
+                semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            ).to.be.revertedWithCustomError(semaphoreContract, "Semaphore__YouAreUsingTheSameNullifierTwice")
+        }).timeout(150_000)
 
-            await expect(transaction)
-                .to.emit(semaphoreContract, "BatchedProofValidated")
-                .withArgs(groupIds, nullifiers, messages, scopes, publicInputs[0], proofBytes)
+        it("Should fail if the hashed values won't match the resulting hash", async () => {
+            const { semaphoreContract, accountAddresses, groupId } = await loadFixture(deploySemaphoreFixture)
+
+            const identities = Array.from({ length: 5 }, (_, i) => new Identity(i.toString()))
+            const members = identities.map(({ commitment }) => commitment)
+            const merkleTreeDepth = 10
+
+            await semaphoreContract["createGroup(address)"](accountAddresses[0])
+
+            for (const member of members) {
+                await semaphoreContract.addMember(groupId, member)
+            }
+
+            const group = new Group()
+            members.forEach((member) => group.addMember(member))
+
+            // Generate the Semaphore proofs
+            const message = 42
+            const scope = 12
+            const semProofs = []
+            for (const id of identities) {
+                semProofs.push(await generateNoirProofForBatching(id, group, message, scope, merkleTreeDepth))
+            }
+            // Batch the proofs together
+            const { proof: batchProof } = await batchSemaphoreNoirProofs(
+                semProofs,
+                undefined,
+                undefined,
+                undefined,
+                true
+            )
+            const nullifiers = semProofs.map(({ nullifier }) => nullifier)
+            const merkleTreeRoots = semProofs.map(({ merkleTreeRoot }) => merkleTreeRoot)
+            const scopes = semProofs.map(({ scope }) => scope)
+            scopes[0] = "0x10"
+            const messages = semProofs.map(({ message }) => message)
+
+            const PROOF_PREFIX_LENGTH = 16
+            const proofPrefix = batchProof.proofBytes.slice(0, PROOF_PREFIX_LENGTH)
+            const proofMain = batchProof.proofBytes.slice(PROOF_PREFIX_LENGTH)
+
+            const proofBytes = hexlify(concat(proofMain.map((h) => getBytes(h))))
+            const publicInputs = [...batchProof.publicInputs, ...proofPrefix]
+
+            const batchProofForContract = {
+                nullifiers,
+                merkleTreeRoots,
+                scopes,
+                messages,
+                publicInputs,
+                proofBytes
+            }
+            const groupIds = identities.map(() => groupId)
+            await expect(
+                semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            ).to.be.revertedWithCustomError(semaphoreContract, "Semaphore__InvalidProof")
         }).timeout(150_000)
     })
 
