@@ -747,6 +747,82 @@ describe("Semaphore", () => {
                 .withArgs(groupIds, nullifiers, messages, scopes, hash, proofBytes)
         }).timeout(150_000)
 
+        it("Should fail a merkle root was not part of the group", async () => {
+            const { semaphoreContract, batchProofForContract, groupIds } = await prepareBatching(5)
+
+            batchProofForContract.merkleTreeRoots[0] = "0x01"
+            const transaction = semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            await expect(transaction).to.be.revertedWithCustomError(
+                semaphoreContract,
+                "Semaphore__MerkleTreeRootIsNotPartOfTheGroup"
+            )
+        }).timeout(150_000)
+
+        it("Should fail a used merkle root was expired", async () => {
+            const { semaphoreContract, accountAddresses, groupId } = await loadFixture(deploySemaphoreFixture)
+
+            const identities = Array.from({ length: 6 }, (_, i) => new Identity(i.toString()))
+            const extraIdentity = new Identity("10")
+            const members = identities.map(({ commitment }) => commitment)
+            const merkleTreeDepth = 10
+
+            // Create the group with 0 sec of expiration
+            await semaphoreContract["createGroup(address, uint256)"](accountAddresses[0], 0)
+
+            for (const member of members) {
+                await semaphoreContract.addMember(groupId, member)
+            }
+            // This will make the merkle root of the group on-chain differ from the local one
+            await semaphoreContract.addMember(groupId, extraIdentity.commitment)
+
+            const group = new Group()
+            members.forEach((member) => group.addMember(member))
+
+            // Generate the Semaphore proofs
+            const message = 42
+            const scope = 12
+
+            const semProofs = []
+            for (const id of identities) {
+                semProofs.push(await generateNoirProofForBatching(id, group, message, scope, merkleTreeDepth))
+            }
+            // Batch the proofs together
+            const { proof: batchProof } = await batchSemaphoreNoirProofs(
+                semProofs,
+                undefined,
+                undefined,
+                undefined,
+                true
+            )
+            const nullifiers = semProofs.map(({ nullifier }) => nullifier)
+            const merkleTreeRoots = semProofs.map(({ merkleTreeRoot }) => merkleTreeRoot)
+            const scopes = semProofs.map(({ scope }) => scope)
+            const messages = semProofs.map(({ message }) => message)
+
+            const PROOF_PREFIX_LENGTH = 16
+            const proofPrefix = batchProof.proofBytes.slice(0, PROOF_PREFIX_LENGTH)
+            const proofMain = batchProof.proofBytes.slice(PROOF_PREFIX_LENGTH)
+
+            const proofBytes = hexlify(concat(proofMain.map((h) => getBytes(h))))
+            const publicInputs = [...batchProof.publicInputs, ...proofPrefix]
+
+            const batchProofForContract = {
+                nullifiers,
+                merkleTreeRoots,
+                scopes,
+                messages,
+                publicInputs,
+                proofBytes
+            }
+            const groupIds = identities.map(() => groupId)
+
+            const transaction = semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
+            await expect(transaction).to.be.revertedWithCustomError(
+                semaphoreContract,
+                "Semaphore__MerkleTreeRootIsExpired"
+            )
+        }).timeout(150_000)
+
         it("Should fail if proof is invalid", async () => {
             const { semaphoreContract, batchProofForContract, groupIds, verifierAddress } = await prepareBatching(6)
 

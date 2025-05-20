@@ -231,10 +231,30 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         return true;
     }
 
+    function validateRoot(uint256 root, uint256 groupId) internal view {
+        if (root != getMerkleTreeRoot(groupId)) {
+            uint256 creationDate = groups[groupId].merkleRootCreationDates[root];
+            uint256 duration = groups[groupId].merkleTreeDuration;
+
+            if (creationDate == 0) {
+                revert Semaphore__MerkleTreeRootIsNotPartOfTheGroup();
+            }
+
+            if (block.timestamp > creationDate + duration) {
+                revert Semaphore__MerkleTreeRootIsExpired();
+            }
+        }
+    }
+
     function verifyBatchedProof(
         uint256[] calldata groupIds,
         SemaphoreNoirBatchedProof calldata proof
     ) public view onlyExistingGroups(groupIds) returns (bool) {
+        // Check that for all proofs a valid root has been used
+        for (uint256 i = 0; i < proof.merkleTreeRoots.length; ++i) {
+            validateRoot(proof.merkleTreeRoots[i], groupIds[i]);
+        }
+
         // create an array of hashed public inputs of proofs
         uint256[] memory inputHashes;
         uint256 proofLength = proof.nullifiers.length;
