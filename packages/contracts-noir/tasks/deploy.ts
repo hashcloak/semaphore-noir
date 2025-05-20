@@ -100,7 +100,7 @@ task("deploy", "Deploy a Semaphore contract")
             )
 
             if (logs) {
-                console.info(`Semaphore Noir contract has been deployed to: ${semaphoreAddress}`)
+                console.info(`SemaphoreNoir contract has been deployed to: ${semaphoreAddress}`)
             }
 
             saveDeployedContracts(
