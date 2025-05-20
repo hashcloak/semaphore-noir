@@ -7,6 +7,7 @@ interface ISemaphore {
     error Semaphore__MerkleTreeDepthIsNotSupported();
     error Semaphore__MerkleTreeRootIsExpired();
     error Semaphore__MerkleTreeRootIsNotPartOfTheGroup();
+    error Semaphore__MismatchedGroupIdsAndNullifiersLength();
     error Semaphore__YouAreUsingTheSameNullifierTwice();
     error Semaphore__InvalidProof();
 

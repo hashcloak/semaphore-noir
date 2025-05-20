@@ -765,7 +765,10 @@ describe("Semaphore", () => {
             const { semaphoreContract, batchProofForContract, groupIds, nullifiers } = await prepareBatching(6)
             batchProofForContract.nullifiers = nullifiers.slice(0, -1)
             const transaction = semaphoreContract.validateBatchedProof(groupIds, batchProofForContract)
-            await expect(transaction).to.be.revertedWith("Mismatched groupIds and nullifiers length")
+            await expect(transaction).to.be.revertedWithCustomError(
+                semaphoreContract,
+                "Semaphore__MismatchedGroupIdsAndNullifiersLength"
+            )
         }).timeout(150_000)
 
         it("Should fail if a nullifier in the batch was already used previously", async () => {

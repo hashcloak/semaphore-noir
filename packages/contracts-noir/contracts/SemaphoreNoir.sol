@@ -190,7 +190,9 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         uint256[] calldata groupIds,
         SemaphoreNoirBatchedProof calldata proof
     ) public onlyExistingGroups(groupIds) returns (bool) {
-        require(proof.nullifiers.length == groupIds.length, "Mismatched groupIds and nullifiers length");
+        if (proof.nullifiers.length != groupIds.length) {
+            revert Semaphore__MismatchedGroupIdsAndNullifiersLength();
+        }
         // The function will revert if the nullifier that is part of the proof,
         // was already used inside the group with id groupId.
         for (uint256 i = 0; i < groupIds.length; ++i) {
