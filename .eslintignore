@@ -44,4 +44,7 @@ yarn-error.log*
 # packages
 cli-template-*
 
+# honkbackend
+ultrahonk.ts
+
 !apps/website/src/app/build

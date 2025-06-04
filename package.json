@@ -13,13 +13,14 @@
         "build:website": "yarn workspace semaphore-website build",
         "build:docs": "yarn workspace semaphore-docs build",
         "compile:contracts": "yarn workspace semaphore-contracts compile",
-        "test": "concurrently -g -c auto -n circuits,circuits-noir,contracts,libraries,subgraph \"yarn:test:circuits\" \"yarn:test:contracts\" \"yarn:test:libraries\" \"yarn test:subgraph\"",
-        "test:libraries": "jest --coverage",
+        "test": "concurrently -g -c auto -n circuits,contracts,contracts-noir,libraries,circuits-noir,subgraph \"yarn:test:circuits\" \"yarn:test:contracts\" \"yarn:test:contracts-noir\" \"yarn:test:libraries\" \"yarn:test:circuits-noir\" \"yarn test:subgraph\"",
+        "test:libraries": "jest --coverage --ignoreProjects circuits-noir",
         "test:library": "jest packages/${0}",
         "test:subgraph": "yarn workspace semaphore-subgraph test",
         "test:contracts": "yarn workspace semaphore-contracts test:coverage",
+        "test:contracts-noir": "yarn workspace semaphore-contracts-noir test:coverage",
         "test:circuits": "yarn workspace @semaphore-protocol/circuits test",
-        "test:circuits-noir": "jest --coverage",
+        "test:circuits-noir": "jest packages/circuits-noir --forceExit; cd ./packages/circuits-noir && nargo test",
         "lint": "concurrently -c auto -g -n eslint,solhint \"eslint . --ext .js,.ts,.tsx\" \"yarn workspace semaphore-contracts lint\"",
         "format": "concurrently -c auto -g -n prettier,embark \"prettier -c .\" \"yarn workspace semaphore-docs format\"",
         "format:write": "concurrently -c auto -g -n prettier,embark \"prettier -w .\" \"yarn workspace semaphore-docs format:write\"",
@@ -49,7 +50,8 @@
     "workspaces": [
         "apps/*",
         "packages/*",
-        "packages/contracts/contracts"
+        "packages/contracts/contracts",
+        "packages/contracts-noir/contracts"
     ],
     "packageManager": "yarn@4.1.0",
     "devDependencies": {

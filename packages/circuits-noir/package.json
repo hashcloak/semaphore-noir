@@ -15,6 +15,9 @@
     "bugs": {
         "url": "https://github.com/semaphore-protocol/semaphore.git/issues"
     },
+    "scripts": {
+        "test": "cd $PROJECT_CWD && yarn test:circuits-noir"
+    },
     "dependencies": {
         "@aztec/bb.js": "0.82.2",
         "@noir-lang/noir_js": "1.0.0-beta.3",
