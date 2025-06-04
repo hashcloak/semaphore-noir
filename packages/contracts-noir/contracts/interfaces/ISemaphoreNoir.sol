@@ -7,6 +7,7 @@ interface ISemaphore {
     error Semaphore__MerkleTreeDepthIsNotSupported();
     error Semaphore__MerkleTreeRootIsExpired();
     error Semaphore__MerkleTreeRootIsNotPartOfTheGroup();
+    error Semaphore__MismatchedGroupIdsAndNullifiersLength();
     error Semaphore__YouAreUsingTheSameNullifierTwice();
     error Semaphore__InvalidProof();
 
@@ -20,11 +21,26 @@ interface ISemaphore {
     /// It defines all the Semaphore proof parameters used by Semaphore.sol.
     struct SemaphoreNoirProof {
         uint256 merkleTreeDepth;
-        uint256 merkleProofLength;
         uint256 merkleTreeRoot;
         uint256 nullifier;
         uint256 message;
         uint256 scope;
+        bytes proofBytes;
+    }
+
+    /// It defines all the Semaphore proof parameters used by Semaphore.sol.
+    /// @param nullifiers: nullfiers of all the child proofs batched in this proof
+    /// @param merkleTreeRoots: merkleTreeRoots of all the child proofs batched in this proof
+    /// @param scopes: scopes of all the child proofs batched in this proof
+    /// @param messages: messages of all the child proofs batched in this proof
+    /// @param publicInputs:  publicInputs of this proof, first element is the hashing of all the above
+    /// @param proofBytes: proofBytes of this proof
+    struct SemaphoreNoirBatchedProof {
+        uint256[] nullifiers;
+        uint256[] merkleTreeRoots;
+        uint256[] scopes;
+        uint256[] messages;
+        bytes32[] publicInputs;
         bytes proofBytes;
     }
 
@@ -53,6 +69,22 @@ interface ISemaphore {
         uint256 nullifier,
         uint256 message,
         uint256 indexed scope,
+        bytes proof
+    );
+
+    /// @dev Event emitted when a Batched Semaphore proof is validated.
+    /// @param groupIds: Id of the group for each proof in a batch.
+    /// @param nullifiers: Nullifier for each proof in a batch.
+    /// @param messages: Semaphore message for each proof in a batch.
+    /// @param scopes: Scope for each proof in a batch.
+    /// @param publicInputHash: Hash of the public inputs.
+    /// @param proof: Batched zero-knowledge proofs.
+    event BatchedProofValidated(
+        uint256[] groupIds,
+        uint256[] nullifiers,
+        uint256[] messages,
+        uint256[] scopes,
+        uint256 indexed publicInputHash,
         bytes proof
     );
 

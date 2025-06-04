@@ -13,6 +13,8 @@ import {MIN_DEPTH, MAX_DEPTH} from "./base/Constants.sol";
 /// This contract also assigns each new Merkle tree generated with a new root a duration (or an expiry)
 /// within which the proofs generated with that root can be validated.
 contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
+    uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+
     IVerifier public verifier;
 
     /// @dev Gets a group id and returns the group parameters.
@@ -143,7 +145,7 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
     function verifyProof(
         uint256 groupId,
         SemaphoreNoirProof calldata proof
-    ) public override onlyExistingGroup(groupId) returns (bool) {
+    ) public view override onlyExistingGroup(groupId) returns (bool) {
         // The function will revert if the Merkle tree depth is not supported.
         if (proof.merkleTreeDepth < MIN_DEPTH || proof.merkleTreeDepth > MAX_DEPTH) {
             revert Semaphore__MerkleTreeDepthIsNotSupported();
@@ -181,7 +183,176 @@ contract SemaphoreNoir is ISemaphore, SemaphoreGroups {
         publicInput[2] = bytes32(proof.merkleTreeRoot);
         publicInput[3] = bytes32(proof.nullifier);
 
-        return verifier.verify(proof.proofBytes, publicInput, proof.merkleTreeDepth);
+        return verifier.verify(proof.proofBytes, publicInput, proof.merkleTreeDepth, false);
+    }
+
+    function validateBatchedProof(
+        uint256[] calldata groupIds,
+        SemaphoreNoirBatchedProof calldata proof
+    ) public onlyExistingGroups(groupIds) returns (bool) {
+        if (proof.nullifiers.length != groupIds.length) {
+            revert Semaphore__MismatchedGroupIdsAndNullifiersLength();
+        }
+        // The function will revert if the nullifier that is part of the proof,
+        // was already used inside the group with id groupId.
+        for (uint256 i = 0; i < groupIds.length; ++i) {
+            if (groups[groupIds[i]].nullifiers[proof.nullifiers[i]]) {
+                revert Semaphore__YouAreUsingTheSameNullifierTwice();
+            }
+        }
+
+        // Also revert if there are double nullifiers within this batched group
+        for (uint256 i = 0; i < proof.nullifiers.length; i++) {
+            for (uint256 j = i + 1; j < proof.nullifiers.length; j++) {
+                if (proof.nullifiers[i] == proof.nullifiers[j]) {
+                    revert Semaphore__YouAreUsingTheSameNullifierTwice();
+                }
+            }
+        }
+
+        // The function will revert if the proof is not verified successfully.
+        if (!verifyBatchedProof(groupIds, proof)) {
+            revert Semaphore__InvalidProof();
+        }
+
+        // Saves the nullifier so that it cannot be used again to successfully verify a proof
+        // that is part of the group with id groupId.
+        for (uint256 i = 0; i < groupIds.length; i++) {
+            groups[groupIds[i]].nullifiers[proof.nullifiers[i]] = true;
+        }
+        emit BatchedProofValidated(
+            groupIds,
+            proof.nullifiers,
+            proof.messages,
+            proof.scopes,
+            uint256(proof.publicInputs[0]),
+            proof.proofBytes
+        );
+        return true;
+    }
+
+    function validateRoot(uint256 root, uint256 groupId) internal view {
+        if (root != getMerkleTreeRoot(groupId)) {
+            uint256 creationDate = groups[groupId].merkleRootCreationDates[root];
+            uint256 duration = groups[groupId].merkleTreeDuration;
+
+            if (creationDate == 0) {
+                revert Semaphore__MerkleTreeRootIsNotPartOfTheGroup();
+            }
+
+            if (block.timestamp > creationDate + duration) {
+                revert Semaphore__MerkleTreeRootIsExpired();
+            }
+        }
+    }
+
+    function verifyBatchedProof(
+        uint256[] calldata groupIds,
+        SemaphoreNoirBatchedProof calldata proof
+    ) public view onlyExistingGroups(groupIds) returns (bool) {
+        // Check that for all proofs a valid root has been used
+        for (uint256 i = 0; i < proof.merkleTreeRoots.length; ++i) {
+            validateRoot(proof.merkleTreeRoots[i], groupIds[i]);
+        }
+
+        // create an array of hashed public inputs of proofs
+        uint256[] memory inputHashes;
+        uint256 proofLength = proof.nullifiers.length;
+        if (proofLength % 2 == 0) {
+            inputHashes = new uint256[](proofLength / 2);
+            for (uint256 i = 0; i < proofLength; i += 2) {
+                inputHashes[i / 2] =
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                _hash(proof.scopes[i]),
+                                _hash(proof.scopes[i + 1]),
+                                _hash(proof.messages[i]),
+                                _hash(proof.messages[i + 1]),
+                                proof.merkleTreeRoots[i],
+                                proof.merkleTreeRoots[i + 1],
+                                proof.nullifiers[i],
+                                proof.nullifiers[i + 1]
+                            )
+                        )
+                    ) %
+                    MODULUS;
+            }
+        } else {
+            // if number of proofs is odd, duplicate the last proof
+            inputHashes = new uint256[]((proofLength + 1) / 2);
+            for (uint256 i = 0; i < proofLength - 1; i += 2) {
+                inputHashes[i / 2] =
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                _hash(proof.scopes[i]),
+                                _hash(proof.scopes[i + 1]),
+                                _hash(proof.messages[i]),
+                                _hash(proof.messages[i + 1]),
+                                proof.merkleTreeRoots[i],
+                                proof.merkleTreeRoots[i + 1],
+                                proof.nullifiers[i],
+                                proof.nullifiers[i + 1]
+                            )
+                        )
+                    ) %
+                    MODULUS;
+            }
+            // last proof
+            inputHashes[inputHashes.length - 1] =
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            _hash(proof.scopes[proofLength - 1]),
+                            _hash(proof.scopes[proofLength - 1]),
+                            _hash(proof.messages[proofLength - 1]),
+                            _hash(proof.messages[proofLength - 1]),
+                            proof.merkleTreeRoots[proofLength - 1],
+                            proof.merkleTreeRoots[proofLength - 1],
+                            proof.nullifiers[proofLength - 1],
+                            proof.nullifiers[proofLength - 1]
+                        )
+                    )
+                ) %
+                MODULUS;
+        }
+
+        // continue hashing pairwise to get the final hash
+        // the hashing strategy is the same as the batching strategy in noir-proof-batch/src/batch.ts
+        uint256 hashLength = inputHashes.length;
+        while (hashLength > 1) {
+            // position to store the value for next level
+            // reusing inputHashes[] to save memory
+            uint256 inputHashesPos = 0;
+            for (uint256 i = 0; i < hashLength; i += 2) {
+                if (i + 1 != hashLength) {
+                    inputHashes[inputHashesPos] =
+                        uint256(keccak256(abi.encodePacked(inputHashes[i], inputHashes[i + 1]))) %
+                        MODULUS;
+                } else {
+                    // if a single leaf is left, push it to the next level
+                    inputHashes[inputHashesPos] = inputHashes[i];
+                }
+
+                ++inputHashesPos;
+            }
+            // length for the next level
+            if (hashLength % 2 == 1) {
+                hashLength = hashLength / 2;
+                ++hashLength;
+            } else {
+                hashLength = hashLength / 2;
+            }
+        }
+
+        uint256 finalHash = inputHashes[0];
+        // check finialHash equal to the hash in publicInput
+        if (uint256(proof.publicInputs[0]) != finalHash) {
+            return false;
+        }
+
+        return verifier.verify(proof.proofBytes, proof.publicInputs, 0, true);
     }
 
     /// @dev Creates a keccak256 hash of a message compatible with the SNARK scalar modulus.

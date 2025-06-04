@@ -12,7 +12,6 @@ export type SemaphoreProof = {
 
 export type SemaphoreNoirProof = {
     merkleTreeDepth: number
-    merkleProofLength: number
     merkleTreeRoot: string
     message: string
     nullifier: string

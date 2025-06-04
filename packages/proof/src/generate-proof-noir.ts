@@ -118,7 +118,6 @@ export default async function generateNoirProof(
     // Return the data as a SemaphoreNoirProof
     return {
         merkleTreeDepth: backend.merkleTreeDepth,
-        merkleProofLength,
         merkleTreeRoot: merkleProof.root.toString() as `0x${string}`,
         nullifier: proofData.publicInputs[3].toString() as `0x${string}`,
         message: message.toString() as `0x${string}`,

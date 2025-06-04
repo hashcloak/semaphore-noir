@@ -42,6 +42,18 @@ abstract contract SemaphoreGroups is ISemaphoreGroups {
         _;
     }
 
+    /// @dev Checks if the all groups in the list exist.
+    /// @param groupId: Id of the group.
+    modifier onlyExistingGroups(uint256[] calldata groupId) {
+        for (uint256 i = 0; i < groupId.length; i++) {
+            if (admins[groupId[i]] == address(0)) {
+                revert Semaphore__GroupDoesNotExist();
+            }
+        }
+
+        _;
+    }
+
     /// @dev Creates a new group. Only the admin will be able to add or remove members.
     /// @param groupId: Id of the group.
     /// @param admin: Admin of the group.

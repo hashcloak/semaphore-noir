@@ -4,33 +4,33 @@
         "contracts": [
             {
                 "name": "SemaphoreNoirVerifierKeyPts1",
-                "address": "0xe9CB9CbF2b53Ac2617C78A19940594B990854821",
-                "startBlock": 8288392
+                "address": "0x3338F4bb347e176D112e3E0E9Dc356510217fb3b",
+                "startBlock": 8371877
             },
             {
                 "name": "SemaphoreNoirVerifierKeyPts2",
-                "address": "0x3993f7688EB0C838edfCA648B596f042e7F8fda9",
-                "startBlock": 8288392
+                "address": "0x900b631790921CE6AF3cc68FCA6F6ABDc4E0839e",
+                "startBlock": 8371877
             },
             {
                 "name": "HonkVerificationKey",
-                "address": "0xd38021Fb5cf8D17E7A64d236970162d74112ac48",
-                "startBlock": 8288392
+                "address": "0x3c473D5ca9F9Ed7D66949Dbc5df6B167f5533b3E",
+                "startBlock": 8371877
             },
             {
                 "name": "SemaphoreNoirVerifier",
-                "address": "0x518Ca7f1c3c48c0Ed350bDe512953A2E450694D4",
-                "startBlock": 8288392
+                "address": "0x0cc1f073e459CF89bB4758e2132548E07aed65c7",
+                "startBlock": 8371877
             },
             {
                 "name": "PoseidonT3",
-                "address": "0xAD7Af1846D9A13b1e97a2c4fDabC47185755A5A1",
-                "startBlock": 8288392
+                "address": "0xAa92a887201Dba5313d5977664583557a19CDE64",
+                "startBlock": 8371877
             },
             {
                 "name": "SemaphoreNoir",
-                "address": "0xCE841cEa9A1B528d8f79f8948D498C80c9A79Eb8",
-                "startBlock": 8288392
+                "address": "0x629f183F9Cb19bEBf0220Fa4b2c8a12d4720644B",
+                "startBlock": 8371877
             }
         ]
     }

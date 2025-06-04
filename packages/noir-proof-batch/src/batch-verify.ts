@@ -10,7 +10,7 @@ import { Project, maybeGetBatchVkPath } from "@zk-kit/artifacts"
  * @returns whether the batch proof is valid or not
  */
 export default async function verifyBatchProof(proofPath: string, vkPath?: string, keccak?: boolean): Promise<boolean> {
-    const finalVkPath = vkPath ?? (await maybeGetBatchVkPath(Project.SEMAPHORE_NOIR))
+    const finalVkPath = vkPath ?? (await maybeGetBatchVkPath(Project.SEMAPHORE_NOIR, keccak))
 
     return new Promise((resolve) => {
         const verifyArgs = ["verify", "--scheme", "ultra_honk", "-k", finalVkPath, "-p", proofPath]

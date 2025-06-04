@@ -1364,11 +1364,6 @@ library CommitmentSchemeLib {
 
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
-    uint256 immutable numPublicInputs;
-
-    constructor(uint256 _numPublicInputs) {
-        numPublicInputs = _numPublicInputs;
-    }
 
     error ProofLengthWrong();
     error PublicInputsLengthWrong();
@@ -1378,19 +1373,23 @@ abstract contract BaseHonkVerifier is IVerifier {
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 440;
 
-    function loadVerificationKey(uint256 merkleTreeDepth) internal virtual returns (VerificationKey memory);
+    function loadVerificationKey(
+        uint256 merkleTreeDepth,
+        bool batch
+    ) internal view virtual returns (VerificationKey memory);
 
     function verify(
         bytes calldata proof,
         bytes32[] calldata publicInputs,
-        uint256 merkleTreeDepth
-    ) public override returns (bool) {
+        uint256 merkleTreeDepth,
+        bool batch
+    ) public view override returns (bool) {
         // Check the received proof is the expected size where each field element is 32 bytes
         if (proof.length != PROOF_SIZE * 32) {
             revert ProofLengthWrong();
         }
 
-        VerificationKey memory vk = loadVerificationKey(merkleTreeDepth);
+        VerificationKey memory vk = loadVerificationKey(merkleTreeDepth, batch);
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
         if (publicInputs.length != vk.publicInputsSize) {
@@ -1441,7 +1440,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < numPublicInputs; i++) {
+            for (uint256 i = 0; i < publicInputs.length; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -1744,13 +1743,18 @@ abstract contract BaseHonkVerifier is IVerifier {
 }
 
 contract SemaphoreNoirVerifier is BaseHonkVerifier {
-    constructor() BaseHonkVerifier(NUMBER_OF_PUBLIC_INPUTS) {
+    constructor() {
         HonkVerificationKey.checkInvariant(MAX_DEPTH);
     }
 
     function loadVerificationKey(
-        uint256 merkleTreeDepth
+        uint256 merkleTreeDepth,
+        bool batch
     ) internal pure override returns (VerificationKey memory honkVk) {
-        honkVk = HonkVerificationKey.loadVerificationKey(merkleTreeDepth);
+        if (batch) {
+            honkVk = HonkVerificationKey.loadBatchingKey();
+        } else {
+            honkVk = HonkVerificationKey.loadVerificationKey(merkleTreeDepth);
+        }
     }
 }

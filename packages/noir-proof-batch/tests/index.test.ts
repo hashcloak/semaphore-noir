@@ -1,16 +1,15 @@
 import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
 import { poseidon2 } from "poseidon-lite"
-import { batchSemaphoreNoirProofs } from "@semaphore-protocol/noir-proof-batch"
 import { SemaphoreNoirProof } from "@semaphore-protocol/proof"
 import { mkdir } from "fs/promises"
 import path from "path"
 import { spawn } from "child_process"
 import generateNoirProofForBatching from "../src/generate-proof-noir"
+import batchSemaphoreNoirProofs, { runBB } from "../src/batch"
 import verifyBatchProof from "../src/batch-verify"
 import toBigInt from "../src/to-bigint"
 import hash from "../src/hash"
-import { runBB } from "../src/batch"
 
 const leavesCircuitDir = path.join(__dirname, "../circuits/batch_2_leaves")
 const nodesCircuitDir = path.join(__dirname, "../circuits/batch_2_nodes")
@@ -187,8 +186,8 @@ const allProofs: SemaphoreNoirProof[] = []
 const maxProofs = 17
 
 const merkleTreeDepth = 10
-const message = "Hello world"
-const scope = "Scope"
+const message = 1
+const scope = 2
 
 beforeAll(async () => {
     // 1. Compile the circuits using nargo

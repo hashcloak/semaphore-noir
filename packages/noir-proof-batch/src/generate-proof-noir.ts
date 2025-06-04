@@ -169,7 +169,6 @@ export default async function generateNoirProofForBatching(
 
     return {
         merkleTreeDepth,
-        merkleProofLength,
         merkleTreeRoot: merkleProof.root.toString() as `0x${string}`,
         nullifier: publicInputs[3].toString() as `0x${string}`,
         message: message.toString() as `0x${string}`,

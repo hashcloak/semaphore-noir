@@ -187,10 +187,11 @@ export default async function batchSemaphoreNoirProofs(
         ])
         const proofFields = JSON.parse(readFileSync(`${recursion}/leaves_${i}/proof_fields.json`, "utf-8"))
 
+        // first field in proof_field.json is the output of the circuit (first public input)
         leafLayerProofs.push({
             proof: {
-                publicInputs: [],
-                proofBytes: proofFields
+                publicInputs: [proofFields[0]],
+                proofBytes: proofFields.slice(1)
             },
             isLayer1: true
         })
@@ -217,12 +218,14 @@ export default async function batchSemaphoreNoirProofs(
                         {
                             verification_key: proof0.isLayer1 ? batch2LeavesCircuitVk : batch2NodesCircuitVk,
                             proof: proof0.proof.proofBytes,
-                            key_hash: vkHash
+                            key_hash: vkHash,
+                            public_inputs_hash: proof0.proof.publicInputs[0]
                         },
                         {
                             verification_key: proof1.isLayer1 ? batch2LeavesCircuitVk : batch2NodesCircuitVk,
                             proof: proof1.proof.proofBytes,
-                            key_hash: vkHash
+                            key_hash: vkHash,
+                            public_inputs_hash: proof1.proof.publicInputs[0]
                         }
                     ]
                 })
@@ -251,10 +254,11 @@ export default async function batchSemaphoreNoirProofs(
                     readFileSync(`${recursion}/node_${layer}_${i}/proof_fields.json`, "utf-8")
                 )
 
+                // first field in proof_field.json is the output of the circuit (first public input)
                 nextLayerProofs.push({
                     proof: {
-                        publicInputs: [],
-                        proofBytes: proofFields
+                        publicInputs: [proofFields[0]],
+                        proofBytes: proofFields.slice(1)
                     },
                     isLayer1: false
                 })

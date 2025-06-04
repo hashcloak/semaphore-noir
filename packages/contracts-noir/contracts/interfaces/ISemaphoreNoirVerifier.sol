@@ -6,6 +6,7 @@ interface IVerifier {
     function verify(
         bytes calldata _proof,
         bytes32[] calldata _publicInputs,
-        uint256 merkleTreeDepth
-    ) external returns (bool);
+        uint256 merkleTreeDepth,
+        bool batch
+    ) external view returns (bool);
 }
