@@ -1,6 +1,6 @@
 {
-    "name": "@semaphore-protocol/proof",
-    "version": "4.9.1",
+    "name": "@hashcloak/semaphore-noir-proof",
+    "version": "1.0.0",
     "description": "A library to generate and verify Semaphore proofs.",
     "type": "module",
     "license": "MIT",
@@ -55,7 +55,7 @@
         "@noir-lang/noir_js": "1.0.0-beta.3",
         "@noir-lang/noir_wasm": "1.0.0-beta.3",
         "@semaphore-protocol/utils": "4.9.1",
-        "@zk-kit/artifacts": "file:<YOUR_PATH>/snark-artifacts/packages/artifacts",
+        "@zk-kit/artifacts": "npm:@hashcloak/semaphore-noir-artifacts@1.0.0",
         "@zk-kit/utils": "1.3.0",
         "ethers": "6.13.4",
         "snarkjs": "0.7.4"
