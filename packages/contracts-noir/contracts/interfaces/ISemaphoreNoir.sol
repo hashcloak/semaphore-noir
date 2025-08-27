@@ -141,5 +141,5 @@ interface ISemaphore {
     /// @dev Verifies a zero-knowledge proof by returning true or false.
     /// @param groupId: Id of the group.
     /// @param proof: Semaphore zero-knowledge proof.
-    function verifyProof(uint256 groupId, SemaphoreNoirProof calldata proof) external returns (bool);
+    function verifyProof(uint256 groupId, SemaphoreNoirProof calldata proof) external view returns (bool);
 }
